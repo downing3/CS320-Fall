@@ -36,6 +36,6 @@ be our answer. The first line of this recursive function checks if the current d
 if it is, we know it is a single digit and we can directly convert it without having to perform any mod calculations. So if true,
 it takes the digit and converts it using chr (ord '0' + n). These make use of the functions given to use in this class. If the digit
 is creater than 9, meaning it is a two-digit number, the mod operation will isolate the last digit of the number and converts it. 
-This entire process will recursively occur on all digits. After this, the match 
+This entire process will recursively occur on all digits. 
 *)
 (* ****** ****** *)
