@@ -1,9 +1,9 @@
 let chr = Char.chr
-let str c0 = String.make 1 c0
+let ord = Char.code
+let str(c0) = String.make 1 c0
 let string_init = String.init
 let string_length = String.length
-let string_get = String.get
-let ord = Char.code
+let string_get(cs, i0) = String.get cs i0
 
 let str_concat (s1: string)(s2: string): string =
   let len_s1 = string_length s1 in
@@ -11,9 +11,9 @@ let str_concat (s1: string)(s2: string): string =
   
   string_init (len_s1 + len_s2) (fun i ->
     if i < len_s1 then
-      string_get s1 i
+      string_get (s1, i)
     else
-      string_get s2 (i - len_s1)
+      string_get (s2, (i - len_s1))
   )
 
 let int2str (i0: int): string =
