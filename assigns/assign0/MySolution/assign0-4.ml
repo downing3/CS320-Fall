@@ -1,8 +1,9 @@
-let chr = Char.chr 
-let str c0 = String.make 1 c0 
-let string_length = String.length
-let string_get cs i0 = String.get cs i0
+let chr = Char.chr
 let ord = Char.code
+let str(c0) = String.make 1 c0
+let string_init = String.init
+let string_length = String.length
+let string_get(cs, i0) = String.get cs i0
 
 let str2int(cs: string): int = 
     let str_len = string_length cs in 
@@ -10,7 +11,7 @@ let str2int(cs: string): int =
     let rec loop currposition result = 
         if currposition = str_len then result
         else
-            let digit = ord (string_get cs currposition) - ord '0' in
+            let digit = ord (string_get (cs, currposition)) - ord '0' in
             loop (currposition + 1) (result * 10 + digit)
     in
     loop 0 0
