@@ -5,18 +5,18 @@ let string_init = String.init
 let string_length = String.length
 let string_get(cs, i0) = String.get cs i0
 
+let str_concat (s1: string)(s2: string): string =
+  let len_s1 = string_length s1 in
+  let len_s2 = string_length s2 in
+  
+  string_init (len_s1 + len_s2) (fun i ->
+    if i < len_s1 then
+      string_get (s1, i)
+    else
+      string_get (s2, (i - len_s1))
+  )
+
 let int2str (i0: int): string =
-  let str_concat s1 s2 =
-    let len_s1 = string_length s1 in
-    let len_s2 = string_length s2 in
-
-    string_init (len_s1 + len_s2) (fun i ->
-      if i < len_s1 then
-        string_get (s1, i)
-      else
-        string_get (s2, (i - len_s1)))
-  in
-
   let rec converter n =
     if n < 10 then
       str (chr (ord '0' + n))
@@ -24,11 +24,9 @@ let int2str (i0: int): string =
       let currdigit = str (chr (ord '0' + (n mod 10))) in  
       str_concat (converter (n / 10)) currdigit
   in
-  
   converter i0
 
 ;;
-
 
 (* ****** ****** *)
 (*
