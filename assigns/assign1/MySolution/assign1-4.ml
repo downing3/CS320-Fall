@@ -8,8 +8,8 @@ let intrep_add(ds1: string)(ds2: string): string =
     in
 
     let rec iterate s1 s2 i carry fwork =
-        let len1 = String.length s1 in
-        let len2 = String.length s2 in
+        let len1 = string_length s1 in
+        let len2 = string_length s2 in
         let max_len = max len1 len2 in
 
         if i >= max_len then

@@ -1,7 +1,7 @@
 #use "./../../../classlib/OCaml/MyOCaml.ml";;
 
 let string_avoid_132(cs: string): bool = 
-  let len = String.length cs in
+  let len = string_length cs in
 
   let rec helper index =
     if index + 2 >= len then true
