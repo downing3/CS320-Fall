@@ -10,7 +10,7 @@
    number inputs and false otherwise. *)
 
 let isPrime(n) =
-  let test(i:int): 
+  let test(i:int): bool = 
      if n mod i = 0 then false else true
   in
   if n < 2 then false else int1_forall(n)(test)
