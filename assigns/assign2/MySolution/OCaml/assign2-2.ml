@@ -1,6 +1,6 @@
 #use "./../../../../classlib/OCaml/MyOCaml.ml";;
 
-exception Mylist_subscript_exn
+exception Mylist_subscript_exn;;
 
 type 'a mylist =
   | MyNil
@@ -8,8 +8,9 @@ type 'a mylist =
   | MySnoc of 'a mylist * 'a
   | MyReverse of 'a mylist
   | MyAppend2 of 'a mylist * 'a mylist
+;;
 
-let mylist_subscript_exn () = raise Mylist_subscript_exn
+let mylist_subscript_exn () = raise Mylist_subscript_exn;;
 
 let rec mylist_length (xs: 'a mylist): int =
   match xs with
@@ -18,6 +19,7 @@ let rec mylist_length (xs: 'a mylist): int =
   | MySnoc(xs, _) -> 1 + mylist_length xs  
   | MyReverse(xs) -> mylist_length xs
   | MyAppend2(xs1, xs2) -> mylist_length xs1 + mylist_length xs2
+;;
 
 let rec mylist_reverse (xs: 'a mylist): 'a mylist =
   match xs with
@@ -26,6 +28,7 @@ let rec mylist_reverse (xs: 'a mylist): 'a mylist =
   | MySnoc (xs, x) -> MyCons (x, mylist_reverse xs)
   | MyReverse (xs) -> xs  
   | MyAppend2 (xs1, xs2) -> MyAppend2 (mylist_reverse xs2, mylist_reverse xs1)
+;;
 
 let rec mylist_get_at (xs: 'a mylist)(i0: int): 'a =
   match xs, i0 with
@@ -43,12 +46,4 @@ let rec mylist_get_at (xs: 'a mylist)(i0: int): 'a =
       let len_xs1 = mylist_length xs1 in
       if i0 < len_xs1 then mylist_get_at xs1 i0
       else mylist_get_at xs2 (i0 - len_xs1)
-
-
-
-
-  
-
-      
-
-
+;;
