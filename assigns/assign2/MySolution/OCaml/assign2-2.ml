@@ -1,6 +1,6 @@
-#use "./../../../../classlib/OCaml/MyOCaml.ml";;
+exception MySubscript
 
-exception Mylist_subscript_exn;;
+let mylist_subscript_exn () : 'a = raise MySubscript;;
 
 type 'a mylist =
   | MyNil
@@ -10,40 +10,31 @@ type 'a mylist =
   | MyAppend2 of 'a mylist * 'a mylist
 ;;
 
-let mylist_subscript_exn () = raise Mylist_subscript_exn;;
+let rec mylist_get_at (xs: 'a mylist) (i0: int): 'a =
+  if i0 < 0 then mylist_subscript_exn ()
+  else match xs with
+    | MyNil -> mylist_subscript_exn ()
+    | MyCons (hd, tl) ->
+      if i0 = 0 then hd
+      else mylist_get_at tl (i0 - 1)
+    | MySnoc (tl, last) ->
+      let len = mylist_length tl in
+      if i0 = len then last
+      else if i0 < len then mylist_get_at tl i0
+      else mylist_subscript_exn ()
+    | MyReverse tl -> 
+      let len = mylist_length tl in
+      mylist_get_at tl (len - i0 - 1)
+    | MyAppend2 (l1, l2) ->
+      let len1 = mylist_length l1 in
+      if i0 < len1 then mylist_get_at l1 i0
+      else mylist_get_at l2 (i0 - len1)
 
-let rec mylist_length (xs: 'a mylist): int =
+and mylist_length (xs: 'a mylist) : int = 
   match xs with
-  | MyNil -> 0 
-  | MyCons(_, xs) -> 1 + mylist_length xs  
-  | MySnoc(xs, _) -> 1 + mylist_length xs  
-  | MyReverse(xs) -> mylist_length xs
-  | MyAppend2(xs1, xs2) -> mylist_length xs1 + mylist_length xs2
-;;
-
-let rec mylist_reverse (xs: 'a mylist): 'a mylist =
-  match xs with
-  | MyNil -> MyNil
-  | MyCons (x, xs) -> MySnoc (mylist_reverse xs, x)
-  | MySnoc (xs, x) -> MyCons (x, mylist_reverse xs)
-  | MyReverse (xs) -> xs  
-  | MyAppend2 (xs1, xs2) -> MyAppend2 (mylist_reverse xs2, mylist_reverse xs1)
-;;
-
-let rec mylist_get_at (xs: 'a mylist)(i0: int): 'a =
-  match xs, i0 with
-  | _, i0 when i0 < 0 -> mylist_subscript_exn ()
-  | MyNil, _ -> mylist_subscript_exn ()
-  | MyCons(x, _), 0 -> x
-  | MyCons(_, xs), i0 -> mylist_get_at xs (i0 - 1)
-  | MySnoc(xs, x), i0 -> 
-      let len = mylist_length xs in
-      if i0 = len then x else mylist_get_at xs i0
-  | MyReverse(xs), i0 ->
-      let rev_xs = mylist_reverse xs in
-      mylist_get_at rev_xs i0
-  | MyAppend2(xs1, xs2), i0 ->
-      let len_xs1 = mylist_length xs1 in
-      if i0 < len_xs1 then mylist_get_at xs1 i0
-      else mylist_get_at xs2 (i0 - len_xs1)
+  | MyNil -> 0
+  | MyCons (_, tl) -> 1 + (mylist_length tl)
+  | MySnoc (tl, _) -> 1 + (mylist_length tl)
+  | MyReverse tl -> mylist_length tl
+  | MyAppend2 (l1, l2) -> (mylist_length l1) + (mylist_length l2)
 ;;
