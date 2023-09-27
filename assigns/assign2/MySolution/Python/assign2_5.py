@@ -6,6 +6,12 @@
 
 #(** transforms the work done by fwork into a list. **)
 
+def revlist(list):
+    new_list = list[::-1]
+    return new_list
+    
+
+
 def fnlist_make_fwork(fwork):
     output = []
 
@@ -13,7 +19,7 @@ def fnlist_make_fwork(fwork):
         output.append(x0) 
 
     fwork(work)
-    return output
+    return revlist(output)
 
 
 
