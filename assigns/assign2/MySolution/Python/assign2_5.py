@@ -6,10 +6,16 @@
 
 #(** transforms the work done by fwork into a list. **)
 
+
 def fnlist_make_fwork(fwork):
     output = []
+
     def work(x0):
         output.append(x0) 
 
     fwork(work)
+    return output
+
+
+
 
