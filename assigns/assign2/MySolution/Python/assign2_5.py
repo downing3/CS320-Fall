@@ -4,17 +4,17 @@
 # to the function list_make_fwork in the library
 # MyOCaml.ml
 
-#(** transforms the work done by fwork into a list. **)
-
+def reverse_list(input_list):
+    return input_list[::-1]
 
 def fnlist_make_fwork(fwork):
     output = []
 
     def work(x0):
-        output.append(x0) 
+        output.append(x0)
 
     fwork(work)
-    return output
+    return reverse_list(output)
 
 
 
