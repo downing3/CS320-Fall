@@ -25,7 +25,7 @@ let list_of_buddies(word: string): string list =
   
   (* Create a list of all possible character indices in the word *)
   let all_indices = List.init (String.length word) (fun i -> i) in
-    List.concatenate_sublists (List.map buddies_of_char_index all_indices)
+    concatenate_sublists (List.map buddies_of_char_index all_indices)
 ;;
 
 
