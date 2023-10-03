@@ -27,9 +27,12 @@ let list_nchoose (xs: 'a list) (n0: int): 'a list list =
       let all_combinations = 
         List.fold_left (fun acc x ->
           acc @ (List.map (fun subset -> x :: subset) acc)
-        ) [[]] xs in
+        ) [[]] xs 
+      in
         (* this filters out only the ones of the correct length *)
-      List.filter (fun subset -> List.length subset = n0) all_combinations
+      List.filter (fun subset -> len subset = n0) all_combinations
+;;
+
     
 
 
