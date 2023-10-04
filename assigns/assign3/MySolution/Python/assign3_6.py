@@ -23,17 +23,15 @@
 #        return fnlist_reverse(self)
 
 
-class MyClass:
+class MyList:
     def __init__(self, value):
         self.value = value
 
-    @classmethod
     def empty_list(cls):
         return []
 
-    @classmethod
     def append_to_front(cls, lst, value):
-        lst.insert(0, value)  # inserting at the front
+        lst.insert(0, value)  
         return lst
     
     def add_to_end(self, lst, value):
@@ -50,6 +48,17 @@ class MyClass:
     def concatenate_two_lists(self, list1, list2):
         output = list1 + list2
         return output
+    
+def mylist_foreach(lst, work_func):
+    for val in lst:
+        work_func(val)
+
+def mylist_rforeach(lst, work_func):
+    reversed_list = MyList.reverse(lst)
+    for val in reversed_list:
+        work_func(val)
+
+    
 
 
 
