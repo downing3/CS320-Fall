@@ -1,71 +1,85 @@
-# Assign3-6: 30 points
-# Please translate the datatype mylist (given in Assign2) into
-# type classes (by following the example of fnlist in MyPython.py).
-# Then please translate mylist_foreach and mylist_rforeach into Python
-#
-########################################################################
 
-#type 'a mylist =
-#  | MyNil
-#  | MyCons of 'a * 'a mylist
-#  | MySnoc of 'a mylist * 'a
-#  | MyReverse of 'a mylist
-#  | MyAppend2 of 'a mylist * 'a mylist
+class mylist:
+    ctag = -1
+    def get_ctag(self):
+        return self.ctag
+    def __reversed__(self):
+        return mylist_reverse(self)
 
-#EXAMPLE
-#class fnlist:
-#    ctag = -1
-#    def get_ctag(self):
-#        return self.ctag
-#    def __iter__(self):
-#        return fnlist_iter(self)
-#    def __reversed__(self):
-#        return fnlist_reverse(self)
+##############################################
+
+class mylist_nil(mylist):
+    def __init__(self):
+        self.ctag = 0
+        #return None
+# end-of-class(mylist_nil)
 
 
-class MyList:
-    def __init__(self, value):
-        self.value = value
-
-    def empty_list(cls):
-        return []
-
-    def append_to_front(cls, lst, value):
-        lst.insert(0, value)  
-        return lst
+class mylist_cons(mylist):
+    def __init__(self, head, tail):
+        self.ctag = 1
+        self.head = head
+        self.tail = tail
+        # return None
+    def get_head(self):
+        return self.head
+    def get_tail(self):
+        return self.tail
     
-    def add_to_end(self, lst, value):
-        lst.append(value)
-        return lst
-    
-    def reverse(self, lst):
-        length = len(lst)
-        output = []
-        for x in lst[::-1]:
-            output = self.add_to_end(output, x)
-        return output
-    
-    def concatenate_two_lists(self, list1, list2):
-        output = list1 + list2
-        return output
-    
-def mylist_foreach(lst, work_func):
-    for val in lst:
-        work_func(val)
+    def __iter__(self):
+        current = self
+        while isinstance(current, mylist_cons):
+            yield current.head
+            current = current.tail
 
-def mylist_rforeach(lst, work_func):
-    reversed_list = MyList.reverse(lst)
-    for val in reversed_list:
-        work_func(val)
-
-    
+#end-of-class (mylist_cons)
 
 
+class mylist_snoc(mylist):
+    def __init__(self, initial, last):
+        self.ctag = 2
+        self.initial = initial
+        self.last = last
 
-    
+    def __iter__(self):
+        current = self
+        while isinstance(current, mylist_snoc):
+            yield current.initial
+            current = current.last
+# end-of-class(mylist_snoc)
 
 
+class mylist_reverse(mylist):
+    def __init__(self, lst):
+        self.ctag = 3
+        self.lst = lst
+
+    def __iter__(self):
+        items = list(self.lst) 
+        for item in reversed(items):
+            yield item
+# end-of-class(mylist_reverse)
 
 
+class mylist_append2(mylist):
+    def __init__(self, lst1, lst2):
+        self.ctag = 4
+        self.lst1 = lst1
+        self.lst2 = lst2
 
+    def __iter__(self):
+        yield from self.lst1
+        yield from self.lst2
+# end-of-class(mylist_append2)
 
+##############################################
+
+def mylist_foreach(lst, func):
+    for item in lst:
+        func(item)
+
+##############################################
+
+def mylist_rforeach(lst, func):
+    for item in reversed(lst):
+        func(item)
