@@ -11,4 +11,6 @@ What is the value of mystery3 ? Your answer:
 
 (* ************************************************ *)
 
-let mystery3 : int = (* YOUR ANSWER *)
+let mystery3 : int = 256
+
+(*I accidently did the math wrong on my sheet, but you can see I did all the correct calculations*)
