@@ -17,4 +17,7 @@ match xs with
 
 (* ************************************************ *)
 
-let list_append(xs: 'a list): 'a list = ....
+let list_append (xs: 'a list) (ys: 'a list) : 'a list =
+  let fold acc x = acc @ [x] in
+  list_foldleft fold ys xs
+;;
