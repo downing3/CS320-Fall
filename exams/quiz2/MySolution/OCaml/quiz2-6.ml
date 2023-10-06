@@ -11,7 +11,8 @@ Please give an implementation of list_reverse based on list_foldright
 (* ************************************************ *)
 
 let list_reverse (xs: 'a list): 'a list =
-  let f x acc = acc @ [x] in
-  list_foldright f xs []
+    let f x acc = x :: acc in
+    list_foldright f xs []
+  
 
 
