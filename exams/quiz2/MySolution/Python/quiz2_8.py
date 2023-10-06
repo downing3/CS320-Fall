@@ -19,5 +19,21 @@
 #
 # *)
 
-def foreach_to_get_at(foreach): # your implementation below
+def foreach_to_get_at(foreach):
+    def get_at(xs, index):
+        len_xs = len(xs)
+        if index < 0 or index > len_xs:
+            raise IndexError("Subscript exception")
+
+        result = [] 
+        
+        def get_elem(currVal, currIndex=index):
+            if currIndex == index:
+                result.append(currVal)
+
+        foreach(xs, get_elem)
+
+        return result[0]
+    
+    return get_at
 

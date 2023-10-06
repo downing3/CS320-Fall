@@ -17,13 +17,10 @@ match xs with
 
 (* ************************************************ *)
 
-let list_append xs ys =
-  let rec reverse lst acc =
-    match lst with
-    | [] -> acc
-    | x :: xs' -> reverse xs' (x :: acc)
-  in
-  reverse (reverse xs []) ys
+let list_append (xs: 'a list) (ys: 'a list) =
+  let fold_func accumulator current = current :: accumulator in
+  list_foldleft xs ys fold_func;;
+
 
 
   
