@@ -24,20 +24,13 @@
 
 def theNatPairs_cubesum():
     i, j = 0, 0
-    prev_cubed_sum = float('inf')
-    
     while True:
         i_cubed = i * i * i
         j_cubed = j * j * j
-        current_cubed_sum = i_cubed + j_cubed
-        
-        if current_cubed_sum < prev_cubed_sum:
-            yield i, j
-            prev_cubed_sum = current_cubed_sum
-        
-        if j == 0 or i_cubed + j_cubed < i * i * i + j * j * j:
+        yield i, j
+        if i_cubed + j_cubed < i * i * i + j * j * j:
             j += 1
         else:
             i += 1
-            j = 0
+            j = i
 
