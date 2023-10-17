@@ -33,37 +33,27 @@ type 'a strcon =
 type 'a stream =
   unit -> 'a strcon
 
-let rec gtree_streamize_dfs (tree: 'a gtree): 'a stream =
-  let rec dfs_helper node =
-    match node with
-    | GTnil -> fun () -> StrNil
-    | GTcons (value, children) ->
-      let children_streams = List.map dfs_helper children in
-      let children_stream () =
-        let rec unfold_child_streams = function
-          | [] -> StrNil
-          | f :: rest ->
-            match f () with
-            | StrNil -> unfold_child_streams rest
-            | StrCons (x, xs) -> StrCons (x, fun () -> unfold_child_streams (xs () :: rest))
-        in
-        unfold_child_streams children_streams
-      in
-      fun () -> StrCons (value, children_stream)
-  in
-  dfs_helper tree ()
+let rec gtree_streamize_dfs(xs: 'a gtree): 'a stream =
+  match xs with
+  | GTnil -> SNil
+  | GTcons(x, children) ->
+    SCons(x, fun () -> gtree_list_streamize_dfs children)
 
-let rec gtree_streamize_bfs (tree: 'a gtree): 'a stream =
-  let rec bfs_helper queue =
-    match queue with
-    | [] -> fun () -> StrNil
-    | GTnil :: rest -> bfs_helper rest ()
-    | GTcons (value, children) :: rest ->
-      let child_values = List.map (fun child -> match child with GTnil -> failwith "Unexpected GTnil in children" | GTcons (v, _) -> v) children in
-      let new_queue = rest @ children in
-      fun () -> StrCons (value, bfs_helper new_queue)
+and gtree_list_streamize_dfs(l: 'a gtree list): 'a stream =
+  match l with
+  | [] -> SNil
+  | hd::tl -> merge_streams (gtree_streamize_dfs hd) (fun () -> gtree_list_streamize_dfs tl)
+
+and merge_streams s1 s2_gen =
+  match s1 with
+  | SNil -> s2_gen ()
+  | SCons(x, tail_gen) -> SCons(x, fun () -> merge_streams (tail_gen ()) s2_gen)
+
+let gtree_streamize_bfs(xs: 'a gtree): 'a stream =
+  let rec bfs q =
+    match q with
+    | [] -> SNil
+    | GTnil::tl -> bfs tl
+    | GTcons(x, children)::tl -> SCons(x, fun () -> bfs (tl @ children))
   in
-  match tree with
-  | GTnil -> fun () -> StrNil
-  | GTcons (value, children) ->
-    fun () -> StrCons (value, bfs_helper [GTcons (value, children)] ())
+  bfs [xs]

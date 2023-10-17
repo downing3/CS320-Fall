@@ -17,19 +17,29 @@ let list_permute(xs: 'a list): 'a list stream
 
 (* ****** ****** *)
 
-let list_permute(xs: 'a list): 'a list stream = 
-  let rec helper lst =
-    match lst with
-    | [] -> StrNil
-    | x :: rest ->
-      let sub_perms = list_permute (rest @ [x]) in
-      let prepend_to_each_list lst =
-        List.map (fun perm -> x :: perm) lst
-      in
-      StrCons (x :: rest, fun () -> stream_map sub_perms prepend_to_each_list)
-  in
-  helper xs
-  ;;
+let rec permutations (xs: 'a list): 'a list list =
+  match xs with
+  | [] -> [[]]
+  | x :: xs' ->
+    let perms = permutations xs' in
+    permute_insert_everywhere x perms []
+
+and permute_insert_everywhere (x: 'a) (perms: 'a list list) (acc: 'a list list): 'a list list =
+  match perms with
+  | [] -> acc
+  | perm :: perms' ->
+    let new_perms = insert_everywhere x perm [] in
+    permute_insert_everywhere x perms' (new_perms @ acc)
+
+and insert_everywhere (x: 'a) (ys: 'a list) (acc: 'a list list): 'a list list =
+  match ys with
+  | [] -> (x :: []) :: acc
+  | y :: ys' ->
+    let new_perm = (x :: y :: ys') in
+    insert_everywhere x ys' (new_perm :: acc)
+
+
+
 
 
 
