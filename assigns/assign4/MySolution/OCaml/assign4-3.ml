@@ -22,17 +22,15 @@ gtree_streamize_bfs(xs: 'a gtree): 'a stream
 
 (* ****** ****** *)
 
+type 'a stream =
+  | SNil
+  | SCons of 'a * (unit -> 'a stream)
+
 type 'a gtree =
   | GTnil
   | GTcons of 'a * ('a gtree list)
 
-type 'a strcon =
-  | StrNil
-  | StrCons of 'a * (unit -> 'a strcon)
-
-type 'a stream =
-  unit -> 'a strcon
-
+(* DFS *)
 let rec gtree_streamize_dfs(xs: 'a gtree): 'a stream =
   match xs with
   | GTnil -> SNil
@@ -49,11 +47,13 @@ and merge_streams s1 s2_gen =
   | SNil -> s2_gen ()
   | SCons(x, tail_gen) -> SCons(x, fun () -> merge_streams (tail_gen ()) s2_gen)
 
+(* BFS *)
 let gtree_streamize_bfs(xs: 'a gtree): 'a stream =
-  let rec bfs q =
-    match q with
-    | [] -> SNil
-    | GTnil::tl -> bfs tl
-    | GTcons(x, children)::tl -> SCons(x, fun () -> bfs (tl @ children))
-  in
-  bfs [xs]
+let rec bfs q =
+  match q with
+  | [] -> SNil
+  | GTnil::tl -> bfs tl
+  | GTcons(x, children)::tl -> SCons(x, fun () -> bfs (tl @ children))
+in
+bfs [xs]
+
