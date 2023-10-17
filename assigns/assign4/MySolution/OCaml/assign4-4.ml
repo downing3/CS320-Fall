@@ -1,4 +1,6 @@
 #use "../../../../classlib/OCaml/MyOCaml.ml";;
+#use "./../../assign4.ml";;
+
 
 (*
 //
@@ -17,27 +19,25 @@ let list_permute(xs: 'a list): 'a list stream
 
 (* ****** ****** *)
 
-let rec permutations (xs: 'a list): 'a list list =
-  match xs with
-  | [] -> [[]]
-  | x :: xs' ->
-    let perms = permutations xs' in
-    permute_insert_everywhere x perms []
-
-and permute_insert_everywhere (x: 'a) (perms: 'a list list) (acc: 'a list list): 'a list list =
-  match perms with
-  | [] -> acc
-  | perm :: perms' ->
-    let new_perms = insert_everywhere x perm [] in
-    permute_insert_everywhere x perms' (new_perms @ acc)
-
-and insert_everywhere (x: 'a) (ys: 'a list) (acc: 'a list list): 'a list list =
-  match ys with
-  | [] -> (x :: []) :: acc
-  | y :: ys' ->
-    let new_perm = (x :: y :: ys') in
-    insert_everywhere x ys' (new_perm :: acc)
-
+let rec list_permute (input_list: 'a list): 'a list stream =
+  let rec generate_permutations lst =
+    match lst with
+    | [] -> StrNil
+    | current_element :: rest ->
+      let sub_perms = list_permute (rest @ [current_element]) in
+      let prepend_to_list lst =
+        let rec prepend_to_each acc prefix = function
+          | [] -> acc
+          | head :: tail ->
+            let perm = prefix @ [head] @ tail in
+            prepend_to_each (perm :: acc) prefix tail
+        in
+        prepend_to_each [] (current_element :: rest) lst
+      in
+      StrCons (current_element :: rest, fun () -> stream_map sub_perms prepend_to_list)
+  in
+  generate_permutations input_list
+  ;;
 
 
 
