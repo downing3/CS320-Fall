@@ -1,35 +1,71 @@
 #use "./../../assign4.ml";;
 #use "./../../../../classlib/OCaml/MyOCaml.ml";;
 
-type 'a stream =
-  | SNil
-  | SCons of 'a * (unit -> 'a stream)
+type 'a gtree =
+| GTnil | GTcons of 'a * ('a gtree list)
+
+(* ****** ****** *)
+
+(*
+//
+Assign4-3:
+//
+HX-2023-10-05: 10 points
+//
+Please enumerate a gtree in the manner of
+depth-first search:
+//
+let rec (* 5 points *)
+gtree_streamize_dfs(xs: 'a gtree): 'a stream
+//
+Please enumerate a gtree in the manner of
+breadth-first search:
+//
+let rec (* 5 points *)
+gtree_streamize_bfs(xs: 'a gtree): 'a stream
+//
+*)
+
+(* ****** ****** *)
 
 
-(* DFS *)
-let rec gtree_streamize_dfs(xs: 'a gtree): 'a stream =
+let rec gtree_streamize_dfs (xs: 'a gtree): 'a stream =
+  let rec dfs_stack stack () =
+    match stack with
+    | [] -> StrNil
+    | GTnil :: rest -> dfs_stack rest ()
+    | GTcons (x, children) :: rest ->
+      let child_stream = gtree_streamize_dfs_list children in
+      StrCons (x, fun () -> dfs_stack (child_stream @ rest) ())
+  and gtree_streamize_dfs_list nodes =
+    match nodes with
+    | [] -> []
+    | node :: rest -> node :: gtree_streamize_dfs_list rest
+  in
   match xs with
-  | GTnil -> SNil
-  | GTcons(x, children) ->
-    SCons(x, fun () -> gtree_list_streamize_dfs children)
+  | GTnil -> fun () -> StrNil
+  | GTcons (x, children) -> fun () -> StrCons (x, fun () -> dfs_stack children ())
 
-and gtree_list_streamize_dfs(l: 'a gtree list): 'a stream =
-  match l with
-  | [] -> SNil
-  | hd::tl -> merge_streams (gtree_streamize_dfs hd) (fun () -> gtree_list_streamize_dfs tl)
+let rec gtree_streamize_bfs (xs: 'a gtree): 'a stream =
+  let rec bfs_queue queue () =
+    match queue with
+    | [] -> StrNil
+    | GTnil :: rest -> bfs_queue rest ()
+    | GTcons (x, children) :: rest ->
+      let child_stream = gtree_streamize_bfs_list children in
+      StrCons (x, fun () -> bfs_queue (rest @ child_stream) ())
+  and gtree_streamize_bfs_list nodes =
+    match nodes with
+    | [] -> []
+    | node :: rest -> node :: gtree_streamize_bfs_list rest
+  in
+  match xs with
+  | GTnil -> fun () -> StrNil
+  | GTcons (x, children) -> fun () -> StrCons (x, fun () -> bfs_queue children ())
 
-and merge_streams s1 s2_gen =
-  match s1 with
-  | SNil -> s2_gen ()
-  | SCons(x, tail_gen) -> SCons(x, fun () -> merge_streams (tail_gen ()) s2_gen)
 
-(* BFS *)
-let gtree_streamize_bfs(xs: 'a gtree): 'a stream =
-let rec bfs q =
-  match q with
-  | [] -> SNil
-  | GTnil::tl -> bfs tl
-  | GTcons(x, children)::tl -> SCons(x, fun () -> bfs (tl @ children))
-in
-bfs [xs]
+
+
+
+
 
