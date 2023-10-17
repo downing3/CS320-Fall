@@ -1,3 +1,4 @@
+
 ################################################
 #
 # Assign4-6:
@@ -23,16 +24,18 @@
 ################################################
 
 def theNatPairs_cubesum():
-    i, j = 1, 1 
+    limit = 1
     while True:
-        i_cubed = i * i * i
-        j_cubed = j * j * j
-        yield i, j
-        if i_cubed + j_cubed < i * j * j * j:
-            i += 1
-        else:
-            j += 1
-            i = 1  
+        pairs = [(i, j) for i in range(limit) for j in range(i, limit)]
+        pairs.sort(key=lambda ij: ij[0]**3 + ij[1]**3)
+        
+        for i, j in pairs:
+            yield i, j
+            
+        limit += 1
+
+
+ 
 
 
 
