@@ -19,39 +19,37 @@ let list_permute(xs: 'a list): 'a list stream
 
 (* ****** ****** *)
 
-let rec append_list xs ys =
-    match xs with
-    | [] -> ys
-    | x::xs' -> x :: (append_list xs' ys)
+let rec insert_all_positions x ys =
+  match ys with
+  | [] -> StrCons([x], (fun () -> StrNil))
+  | hd::tl -> 
+      let next = fun () -> 
+        let mapped = insert_all_positions x tl in
+        match mapped with
+        | StrNil -> StrNil
+        | StrCons(lst, fn) -> StrCons(hd::lst, fn)
+      in
+      StrCons(x::hd::tl, next)
 
-let rec insert_all_positions x xs =s
-    match xs with
-    | [] -> [[x]]
-    | y::ys -> 
-        let rest = insert_all_positions x ys in
-        (x::y::ys) :: (prepend y rest)
-and prepend y lists = 
-    match lists with
-    | [] -> []
-    | z::zs -> (y::z) :: (prepend y zs)
+let rec list_permute xs =
+  match xs with
+  | [] -> (fun () -> StrCons([], fun () -> StrNil))
+  | hd::tl ->
+      let perms = list_permute tl in
+      fun () -> 
+        let sub_perms = perms () in
+        match sub_perms with
+        | StrNil -> StrNil
+        | StrCons(perm, fn) -> insert_all_positions hd perm
 
-let rec list_permute (input_list: 'a list): 'a list stream =
-    fun () -> 
-        match input_list with
-        | [] -> StrNil
-        | x::xs ->
-            let perms = list_permute xs in
-            let rec interleave perms =
-                match perms () with
-                | StrNil -> StrNil
-                | StrCons(lst, next) -> 
-                    let all_inserted = insert_all_positions x lst in
-                    let rec to_stream l = 
-                        match l with
-                        | [] -> interleave next
-                        | h::t -> StrCons(h, fun () -> to_stream t)
-                    in to_stream all_inserted
-            in interleave perms
+
+
+
+
+
+
+
+
 
 
 
