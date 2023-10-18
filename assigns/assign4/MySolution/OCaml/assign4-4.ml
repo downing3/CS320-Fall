@@ -19,28 +19,31 @@ let list_permute(xs: 'a list): 'a list stream
 
 (* ****** ****** *)
 
-let rec insert_all_positions x ys =
-  match ys with
-  | [] -> StrCons([x], (fun () -> StrNil))
-  | hd::tl -> 
-      let next = fun () -> 
-        let mapped = insert_all_positions x tl in
-        match mapped with
-        | StrNil -> StrNil
-        | StrCons(lst, fn) -> StrCons(hd::lst, fn)
-      in
-      StrCons(x::hd::tl, next)
+let list_map(input_list: 'a list)(func: 'a -> 'b): 'b list =
+  list_foldright(input_list)([])(fun elem accum -> func(elem) :: accum)
 
-let rec list_permute xs =
-  match xs with
-  | [] -> (fun () -> StrCons([], fun () -> StrNil))
-  | hd::tl ->
-      let perms = list_permute tl in
-      fun () -> 
-        let sub_perms = perms () in
-        match sub_perms with
-        | StrNil -> StrNil
-        | StrCons(perm, fn) -> insert_all_positions hd perm
+let list_cons(element: 'a)(input_list: 'a list): 'a list =
+  element :: input_list
+
+let rec stream_map stream_elem transform_func fallback_func =
+  match stream_elem with
+  | StrNil -> fallback_func ()
+  | StrCons (value, next_func) -> StrCons(transform_func value, fun () -> stream_map (next_func ()) transform_func fallback_func)
+
+let rec perms (input_list: 'a list): 'a list stream = 
+  match input_list with
+  | [] -> fun () -> StrCons([], fun () -> StrNil)
+  | _ -> let rec inner_perms(pre_list: 'a list) (post_list: 'a list) =
+    match pre_list with
+    | [] -> StrNil
+    | head::tail -> stream_map (perms (list_reverse post_list @ tail) ()) (list_cons head) (fun () -> inner_perms tail (head::post_list))
+  in
+    fun() -> inner_perms input_list []
+
+let list_permute(input_list: 'a list): 'a list stream =
+  perms(input_list)
+;;
+
 
 
 
