@@ -1,12 +1,12 @@
 #use "./../../../classlib/OCaml/MyOCaml.ml";;
 
-(* Type Definitions *)
+(* TYPE DEFINITIONS *)
 type const = Int of int | Bool of bool | Unit
 type command = Push of const | Pop | Trace | Add | Sub | Mul | Div | And | Or | Not | Lt | Gt
 type stack = const list
 type trace = string list
 
-(* Helper Functions *)
+(* CUSTOM HELPER FUNCTIONS *)
 let is_digit_or_minus ch =
    (ch >= '0' && ch <= '9') || ch = '-'
 
@@ -21,12 +21,6 @@ let eval_const c = match c with
     | Int i -> Int i
     | Bool b -> Bool b
     | Unit -> Unit
-
-(* extracts top two integers from the stack *)
-let top_two_ints stack =
-    match stack with
-    | Int i :: Int j :: _ -> Some (i, j)
-    | _ -> None
 
 (* maps a function over a list *)
 let rec list_map f lst = 
@@ -77,12 +71,6 @@ let string_to_int str =
      -1 * (aux 0 (str_len - 1))
    else
      aux 0 (str_len - 1)
- 
-
-(* Returns the tail of a list *)
-let list_tail lst = match lst with
-  | [] -> failwith "Empty list has no tail"
-  | _ :: t -> t
 
 (* check if list contains specific element *)
 let rec list_contains lst x =
@@ -105,7 +93,7 @@ let trim str =
     in
     trim_end (trim_start str)
 
-(* Parsing Constants and Commands *)
+(* PARSING CONSTS & COMMANDS *)
 let parse_const str = 
    if str = "True" then Bool true
    else if str = "False" then Bool false
@@ -130,7 +118,7 @@ let parse_command str =
    | ["Gt"] -> Gt
    | _ -> failwith "Invalid command"
 
-(* Parsing Programs *)
+(* PARSING FUNCTIONS *)
 let parse_program program = 
    list_map parse_command (string_split program ';')
 
@@ -140,46 +128,53 @@ let eval_command cmd (stack, trace) = match cmd with
                 | _ :: s -> (s, trace)
                 | [] -> ([], "Panic" :: trace))
     | Trace -> (match stack with
-            | c :: s -> (c :: s, toString c :: trace)
-            | [] -> ([], "Panic" :: trace))
+            | c :: s -> (Unit :: s, toString c :: trace) 
+            | [] -> ([], "Panic" :: trace)) 
     | Add -> (match stack with
             | Int i :: Int j :: s -> (Int (i + j) :: s, trace)
-            | _ -> ([], "Panic" :: trace))
-    | Sub -> (match stack with  
-            | Int i :: Int j :: s -> (Int (i - j) :: s, trace)
-            | _ -> ([], "Panic" :: trace))
+            | Int _ :: _ | _ :: Int _ :: _ | [] -> ([], "Panic" :: trace) 
+            | _ :: _ :: _ | _ :: [] -> ([], "Panic" :: trace))  
+    | Sub -> (match stack with
+            | Int i :: Int j :: s -> (Int (i - j) :: s, trace)  
+            | Int _ :: _ | _ :: Int _ :: _ | [] -> ([], "Panic" :: trace) 
+            | _ :: _ :: _ | _ :: [] -> ([], "Panic" :: trace)) 
     | Mul -> (match stack with
-            | Int i :: Int j :: s -> (Int (i * j) :: s, trace)
-            | _ -> ([], "Panic" :: trace))
-    | Div -> (match stack with  
-            | Int i :: Int j :: s ->
-                if j = 0 then ([], "Panic" :: trace)
-                else (Int (i / j) :: s, trace)
-            | _ -> ([], "Panic" :: trace))
-
+            | Int i :: Int j :: s -> (Int (i * j) :: s, trace) 
+            | Int _ :: _ | _ :: Int _ :: _ | [] -> ([], "Panic" :: trace)
+            | _ :: _ :: _ | _ :: [] -> ([], "Panic" :: trace)) 
+    | Div -> (match stack with
+            | Int i :: Int j :: s when j != 0 -> (Int (i / j) :: s, trace)
+            | Int _ :: Int 0 :: _ -> ([], "Panic" :: trace)
+            | Int _ :: _ | _ :: Int _ :: _ | [] -> ([], "Panic" :: trace)
+            | _ :: _ :: _ | _ :: [] -> ([], "Panic" :: trace))
     | And -> (match stack with
             | Bool a :: Bool b :: s -> (Bool (a && b) :: s, trace)
-            | _ -> ([], "Panic" :: trace))
+            | Bool _ :: _ | _ :: Bool _ :: _ | [] -> ([], "Panic" :: trace)
+            | _ :: _ :: _ | _ :: [] -> ([], "Panic" :: trace))
     | Or -> (match stack with
             | Bool a :: Bool b :: s -> (Bool (a || b) :: s, trace)
-            | _ -> ([], "Panic" :: trace))
+            | Bool _ :: _ | _ :: Bool _ :: _ | [] -> ([], "Panic" :: trace) 
+            | _ :: _ :: _ | _ :: [] -> ([], "Panic" :: trace))
     | Not -> (match stack with
-            | Bool a :: s -> (Bool (not a) :: s, trace)
-            | _ -> ([], "Panic" :: trace))
+            | Bool a :: s -> (Bool (not a) :: s, trace) 
+            | [] -> ([], "Panic" :: trace)
+            | _ :: _ -> ([], "Panic" :: trace))
     | Lt -> (match stack with
-            | Int i :: Int j :: s -> (Bool (i < j) :: s, trace)
-            | _ -> ([], "Panic" :: trace))
+            | Int i :: Int j :: s -> (Bool (i < j) :: s, trace) 
+            | Int _ :: _ | _ :: Int _ :: _ | [] -> ([], "Panic" :: trace)
+            | _ :: _ :: _ | _ :: [] -> ([], "Panic" :: trace)) 
     | Gt -> (match stack with
-            | Int i :: Int j :: s -> (Bool (i > j) :: s, trace)
-            | _ -> ([], "Panic" :: trace))
+            | Int i :: Int j :: s -> (Bool (i > j) :: s, trace) 
+            | Int _ :: _ | _ :: Int _ :: _ | [] -> ([], "Panic" :: trace)
+            | _ :: _ :: _ | _ :: [] -> ([], "Panic" :: trace))  
 
-
-(* Interpreter Function *)
+(* INTERP FUNCTION *)
 let interp (s : string) : string list option =
-    let cmds = parse_program s in
-    let eval_command_wrapper acc cmd = eval_command cmd acc in
-    let final_state = list_foldleft cmds ([], []) eval_command_wrapper in
-    match final_state with
-    | (_, trace) -> 
-        if list_contains trace "Panic" then None
-        else Some (list_reverse trace)
+  let cmds = parse_program s in
+  let eval_command_wrapper acc cmd = eval_command cmd acc in
+  let final_state = list_foldleft cmds ([], []) eval_command_wrapper in
+  match final_state with
+  | (_, trace) -> 
+      if list_contains trace "Panic" then Some ["Panic"]
+      else Some (list_reverse trace)
+
