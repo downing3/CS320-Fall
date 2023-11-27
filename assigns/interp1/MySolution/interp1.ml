@@ -31,7 +31,7 @@ let rec list_map f lst =
 (* extracts a substring from a string *)
 let substring str start len =
   if start < 0 || len < 0 || start + len > string_length str then
-    failwith "substring: invalid bounds"
+    failwith "invalid bounds"
   else
     let rec build_substring i acc =
       if i < start + len then
@@ -59,18 +59,22 @@ let rec string_split str seperator =
 
 (* converts string to int, specificallyn to parse numerical values from the program's input *)
 let string_to_int str =
-   let rec aux acc i =
-     if i < 0 then acc
-     else let ch = string_get_at str i in
-          if ch = '-' then acc
-          else let digit = digit_of_char ch in
-               aux (acc + digit * int_of_float (10.0 ** float_of_int (string_length str - i - 1))) (i - 1)
-   in
    let str_len = string_length str in
-   if string_get_at str 0 = '-' then
-     -1 * (aux 0 (str_len - 1))
+   let rec aux acc i last_was_minus =
+     if i < 0 then Some acc
+     else
+       let ch = string_get_at str i in
+       match ch with
+       | '-' -> if last_was_minus then None else aux acc (i - 1) true
+       | _ -> if char_isdigit ch then
+                let digit = digit_of_char ch in
+                aux (acc + digit * int_of_float (10.0 ** float_of_int (string_length str - i - 1))) (i - 1) false
+              else None
+   in
+   if str_len > 0 && string_get_at str 0 = '-' then
+     aux 0 (str_len - 1) true
    else
-     aux 0 (str_len - 1)
+     aux 0 (str_len - 1) false
 
 (* check if list contains specific element *)
 let rec list_contains lst x =
@@ -98,7 +102,10 @@ let parse_const str =
   if str = "True" then Some (Bool true)
   else if str = "False" then Some (Bool false)
   else if str = "Unit" then Some (Unit)
-  else if string_forall str is_digit_or_minus then Some (Int (string_to_int str))
+  else if string_forall str is_digit_or_minus then
+    match string_to_int str with
+    | Some i -> Some (Int i)
+    | None -> None
   else None
 
 let parse_command str = 
