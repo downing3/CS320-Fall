@@ -152,7 +152,7 @@ let eval_command cmd (stack, trace) = match cmd with
             | Int _ :: _ | _ :: Int _ :: _ | [] -> ([], "Panic" :: trace)
             | _ :: _ :: _ | _ :: [] -> ([], "Panic" :: trace)) 
     | Div -> (match stack with
-            | Int i :: Int j :: s when j != 0 -> (Int (i / j) :: s, trace)
+            | Int i :: Int j :: s when j != 0 -> (Int (j / i) :: s, trace)
             | Int _ :: Int 0 :: _ -> ([], "Panic" :: trace)
             | Int _ :: _ | _ :: Int _ :: _ | [] -> ([], "Panic" :: trace)
             | _ :: _ :: _ | _ :: [] -> ([], "Panic" :: trace))
