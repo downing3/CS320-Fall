@@ -156,6 +156,7 @@ let eval_command cmd (stack, trace) = match cmd with
                 if j = 0 then ([], "Panic" :: trace)
                 else (Int (i / j) :: s, trace)
             | _ -> ([], "Panic" :: trace))
+
     | And -> (match stack with
             | Bool a :: Bool b :: s -> (Bool (a && b) :: s, trace)
             | _ -> ([], "Panic" :: trace))
