@@ -1,7 +1,7 @@
 #use "./../../../classlib/OCaml/MyOCaml.ml";;
 
 (* TYPE DEFINITIONS *)
-type const = Int of int | Bool of bool | Unit
+type const = Int of int | Bool of bool | Unit | Invalid
 type command = Push of const | Pop | Trace | Add | Sub | Mul | Div | And | Or | Not | Lt | Gt
 type stack = const list
 type trace = string list
@@ -99,7 +99,7 @@ let parse_const str =
    else if str = "False" then Bool false
    else if str = "Unit" then Unit
    else if string_forall str is_digit_or_minus then Int (string_to_int str)
-   else failwith "Invalid constant"
+   else Invalid 
 
 let parse_command str = 
    let parts = string_split (trim str) ' ' in
@@ -123,7 +123,9 @@ let parse_program program =
    list_map parse_command (string_split program ';')
 
 let eval_command cmd (stack, trace) = match cmd with
-    | Push c -> (c :: stack, trace)
+    | Push c -> 
+        if c = Invalid then ([], "Panic" :: trace)
+        else (c :: stack, trace)
     | Pop -> (match stack with
                 | _ :: s -> (s, trace)
                 | [] -> ([], "Panic" :: trace))
