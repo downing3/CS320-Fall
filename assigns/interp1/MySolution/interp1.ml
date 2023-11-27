@@ -1,3 +1,4 @@
+
 #use "./../../../classlib/OCaml/MyOCaml.ml";;
 
 (* TYPE DEFINITIONS *)
@@ -95,35 +96,28 @@ let trim str =
 
 (* PARSING CONSTS & COMMANDS *)
 let parse_const str = 
-  if str = "True" then Bool true
-  else if str = "False" then Bool false
-  else if str = "Unit" then Unit
-  else if string_forall str is_digit_or_minus then
-     match str with
-     | "-" -> Invalid  (* Single "-" is not a valid integer *)
-     | _ -> Int (string_to_int str)
-  else Invalid  (* Unrecognized constant *)
-
+   if str = "True" then Bool true
+   else if str = "False" then Bool false
+   else if str = "Unit" then Unit
+   else if string_forall str is_digit_or_minus then Int (string_to_int str)
+   else Invalid 
 
 let parse_command str = 
    let parts = string_split (trim str) ' ' in
    match parts with
-   | ["Push"; const_str] -> 
-       let const = parse_const const_str in
-       if const = Invalid then None
-       else Some (Push const)
-   | ["Pop"] -> Some Pop
-   | ["Trace"] -> Some Trace
-   | ["Add"] -> Some Add
-   | ["Sub"] -> Some Sub
-   | ["Mul"] -> Some Mul
-   | ["Div"] -> Some Div
-   | ["And"] -> Some And
-   | ["Or"] -> Some Or
-   | ["Not"] -> Some Not
-   | ["Lt"] -> Some Lt
-   | ["Gt"] -> Some Gt
-   | _ -> None
+   | ["Push"; const_str] -> Push (parse_const const_str)
+   | ["Pop"] -> Pop
+   | ["Trace"] -> Trace
+   | ["Add"] -> Add
+   | ["Sub"] -> Sub
+   | ["Mul"] -> Mul
+   | ["Div"] -> Div
+   | ["And"] -> And
+   | ["Or"] -> Or
+   | ["Not"] -> Not
+   | ["Lt"] -> Lt
+   | ["Gt"] -> Gt
+   | _ -> failwith "Invalid command"
 
 (* PARSING FUNCTIONS *)
 let parse_program program = 
@@ -179,16 +173,9 @@ let eval_command cmd (stack, trace) = match cmd with
 
 (* INTERP FUNCTION *)
 let interp (s : string) : string list option =
-  let cmds = string_split s ';' in
-  let rec eval_commands cmds (stack, trace) =
-      match cmds with
-      | [] -> (stack, trace)
-      | cmd_str :: t -> 
-          match parse_command cmd_str with
-          | None -> ([], "Panic" :: trace) 
-          | Some cmd -> eval_commands t (eval_command cmd (stack, trace))
-  in
-  let final_state = eval_commands cmds ([], []) in
+  let cmds = parse_program s in
+  let eval_command_wrapper acc cmd = eval_command cmd acc in
+  let final_state = list_foldleft cmds ([], []) eval_command_wrapper in
   match final_state with
   | (_, trace) -> 
       if list_contains trace "Panic" then Some ["Panic"]
