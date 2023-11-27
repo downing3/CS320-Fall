@@ -77,7 +77,6 @@ let string_to_int str =
      -1 * (aux 0 (str_len - 1))
    else
      aux 0 (str_len - 1)
-
  
 
 (* Returns the tail of a list *)
@@ -141,36 +140,38 @@ let eval_command cmd (stack, trace) = match cmd with
                 | _ :: s -> (s, trace)
                 | [] -> ([], "Panic" :: trace))
     | Trace -> (match stack with
-                | c :: s -> (Unit :: s, toString c :: trace)
-                | [] -> ([], "Panic" :: trace))
-    | Add -> (match top_two_ints stack with
-                | Some (i, j) -> (Int (i + j) :: list_tail (list_tail stack), trace)
-                | None -> ([], "Panic" :: trace))
-    | Sub -> (match top_two_ints stack with  
-                | Some (i, j) -> (Int (i - j) :: list_tail (list_tail stack), trace)
-                | None -> ([], "Panic" :: trace))
-    | Mul -> (match top_two_ints stack with
-                | Some (i, j) -> (Int (i * j) :: list_tail (list_tail stack), trace)
-                | None -> ([], "Panic" :: trace))
-    | Div -> (match top_two_ints stack with  
-                | Some (i, 0) -> ([], "Panic" :: trace) 
-                | Some (i, j) -> (Int (i / j) :: list_tail (list_tail stack), trace)
-                | None -> ([], "Panic" :: trace))
+            | c :: s -> (c :: s, toString c :: trace)
+            | [] -> ([], "Panic" :: trace))
+    | Add -> (match stack with
+            | Int i :: Int j :: s -> (Int (i + j) :: s, trace)
+            | _ -> ([], "Panic" :: trace))
+    | Sub -> (match stack with  
+            | Int i :: Int j :: s -> (Int (i - j) :: s, trace)
+            | _ -> ([], "Panic" :: trace))
+    | Mul -> (match stack with
+            | Int i :: Int j :: s -> (Int (i * j) :: s, trace)
+            | _ -> ([], "Panic" :: trace))
+    | Div -> (match stack with  
+            | Int i :: Int j :: s ->
+                if j = 0 then ([], "Panic" :: trace)
+                else (Int (i / j) :: s, trace)
+            | _ -> ([], "Panic" :: trace))
     | And -> (match stack with
-                | Bool a :: Bool b :: s -> (Bool (a && b) :: s, trace)
-                | _ -> ([], "Panic" :: trace))
+            | Bool a :: Bool b :: s -> (Bool (a && b) :: s, trace)
+            | _ -> ([], "Panic" :: trace))
     | Or -> (match stack with
-                | Bool a :: Bool b :: s -> (Bool (a || b) :: s, trace)
-                | _ -> ([], "Panic" :: trace))
+            | Bool a :: Bool b :: s -> (Bool (a || b) :: s, trace)
+            | _ -> ([], "Panic" :: trace))
     | Not -> (match stack with
-                | Bool a :: s -> (Bool (not a) :: s, trace)
-                | _ -> ([], "Panic" :: trace))
-    | Lt -> (match top_two_ints stack with
-                | Some (i, j) -> (Bool (i < j) :: list_tail (list_tail stack), trace)
-                | None -> ([], "Panic" :: trace))
-    | Gt -> (match top_two_ints stack with
-                | Some (i, j) -> (Bool (i > j) :: list_tail (list_tail stack), trace)
-                | None -> ([], "Panic" :: trace))
+            | Bool a :: s -> (Bool (not a) :: s, trace)
+            | _ -> ([], "Panic" :: trace))
+    | Lt -> (match stack with
+            | Int i :: Int j :: s -> (Bool (i < j) :: s, trace)
+            | _ -> ([], "Panic" :: trace))
+    | Gt -> (match stack with
+            | Int i :: Int j :: s -> (Bool (i > j) :: s, trace)
+            | _ -> ([], "Panic" :: trace))
+
 
 (* Interpreter Function *)
 let interp (s : string) : string list option =
