@@ -1,3 +1,4 @@
+
 #use "./../../../classlib/OCaml/MyOCaml.ml";;
 
 (* TYPE DEFINITIONS *)
@@ -193,6 +194,8 @@ let interp (s : string) : string list option =
       let eval_command_wrapper acc cmd = eval_command cmd acc in
       let final_state = list_foldleft cmds ([], []) eval_command_wrapper in
       let (_, trace) = final_state in
-      if list_contains trace "Panic" then Some ["Panic"]
+      if list_contains trace "Panic" then Some ("Panic" :: trace)
       else Some (list_reverse trace)
   | None -> None
+
+
