@@ -11,6 +11,11 @@ type trace = string list
 let is_digit_or_minus ch =
    (ch >= '0' && ch <= '9') || ch = '-'
 
+let rec list_filter f lst =
+  match lst with
+  | [] -> []
+  | h :: t -> if f h then h :: list_filter f t else list_filter f t
+
 (* converts a constant to its string representation *)
 let toString c = match c with
     | Int i -> string_of_int i
@@ -194,8 +199,12 @@ let interp (s : string) : string list option =
       let eval_command_wrapper acc cmd = eval_command cmd acc in
       let final_state = list_foldleft cmds ([], []) eval_command_wrapper in
       let (_, trace) = final_state in
-      if list_contains trace "Panic" then Some ("Panic" :: trace)
-      else Some (list_reverse trace)
+      if list_contains trace "Panic" then 
+        let filtered_trace = list_filter (fun x -> x <> "Panic") trace in
+        Some ("Panic" :: list_reverse filtered_trace)
+      else 
+        Some (list_reverse trace)
   | None -> None
+
 
 
