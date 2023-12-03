@@ -7,7 +7,6 @@ type const =
   | Unit
   | Symbol of string
 
-(* Forward declaration of command list type *)
 and coms = com list
 
 (* Type definition for values *)
@@ -15,7 +14,6 @@ and value =
   | Const of const
   | Closure of string * environment * coms
 
-(* Type definition for the environment *)
 and environment = (string * value) list
 
 (* Extended command types *)
@@ -35,7 +33,6 @@ and com =
   | Fun of coms
   | Call
   | Return
-
 
 (* Helper function to convert a list of characters to a string *)
 let rec string_of_chars chars =
@@ -77,7 +74,7 @@ let parse_digit_char =
 (* Parser for a symbol *)
 let parse_symbol =
   let* first_char = parse_char in
-  let* rest_chars = many (parse_char <|> parse_digit_char) in
+  let* rest_chars = many (parse_char <|> parse_digit_char) << whitespaces in
   pure (Symbol (String.make 1 first_char ^ string_of_chars rest_chars))
 
 let parse_const =
@@ -101,15 +98,10 @@ let rec parse_com () =
     (keyword "Not" >> pure Not);
     (keyword "Lt" >> pure Lt);
     (keyword "Gt" >> pure Gt);
-    (keyword "If" >> parse_coms () >>= fun if_branch ->
-      keyword "Else" >> parse_coms () >>= fun else_branch ->
-      keyword "End" >> pure (If (if_branch, else_branch)));
     (keyword "Else" >> pure Else);
     (keyword "End" >> pure End);
     (keyword "Bind" >> pure Bind);
     (keyword "Lookup" >> pure Lookup);
-    (keyword "Fun" >> parse_coms () >>= fun body ->
-      keyword "End" >> pure (Fun body));
     (keyword "Call" >> pure Call);
     (keyword "Return" >> pure Return)
   ]
@@ -203,16 +195,21 @@ let rec eval (s : stack) (t : trace) (env : environment) (p : prog) : trace =
     (match s with
     | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Bool (i > j)) :: s0) t env p0
     | _ -> eval [] ("Panic" :: t) env [])
+
   | If (c1, c2) :: p0 ->
-    (match s with
-    | Const (Bool b) :: s0 ->
-        let cmds = if b then c1 else c2 in
-        eval s0 t env (cmds @ p0)
-    | _ -> eval [] ("Panic" :: t) env [])
+  (match s with
+  | Const (Bool b) :: s0 ->
+      if b then
+        eval s0 t env c1  
+      else
+        eval s0 t env c2  
+  | _ ->
+      eval [] ("Panic" :: t) env [])
   | Else :: p0 ->
     eval s t env p0
   | End :: p0 ->
     eval s t env p0
+
   
   | Bind :: p0 ->
   (match s with
@@ -239,22 +236,32 @@ let rec eval (s : stack) (t : trace) (env : environment) (p : prog) : trace =
 
   | Fun c :: p0 ->
     (match s with
-    | Const (Symbol f) :: s0 ->
-        eval (Closure (f, env, c) :: s0) t env p0
-    | _ -> eval [] ("Panic" :: t) env [])
-
+    | (Const (Symbol x)) :: s0 ->
+        let closure = Closure (x, env, c) in
+        eval (closure :: s0) t env p0  
+    | _ ->
+        eval [] ("Panic" :: t) env [])  
+  
   | Call :: p0 ->
-    (match s with
-    | a :: Closure (f, closure_env, c_body) :: s0 ->
-        let new_env = (f, Closure (f, closure_env, c_body)) :: closure_env in
-        eval (a :: s0) t new_env c_body 
-    | _ -> eval [] ("Panic" :: t) env [])
+  (match s with
+  | a :: Closure (f, closure_env, c_body) :: s0 ->
+      let new_env = (f, Closure (f, closure_env, c_body)) :: closure_env in
+      eval [a] t new_env c_body  
+  | _ ->
+      eval [] ("Panic" :: t) env []) 
+  
+| Return :: p0 ->
+  (match s with
+  | v :: s0 ->
+      (match v with
+      | Closure (_, closure_env, _) ->
+          eval s0 t closure_env p0 
+      | _ ->
+          eval [] ("Panic" :: t) env [])
+  | _ ->
+      eval [] ("Panic" :: t) env [])
 
-  | Return :: p0 ->
-    (match s with
-    | a :: s0 ->
-        []
-    | _ -> eval [] ("Panic" :: t) env [])
+  
 
 (* putting it all together [input -> parser -> eval -> output] *)
 
