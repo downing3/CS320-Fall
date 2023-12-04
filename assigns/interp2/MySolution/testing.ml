@@ -84,7 +84,7 @@ let parse_const =
   parse_symbol
 
 let rec parse_com () =
-  let* _ = pure () in  
+  let* _ = pure () in 
   choice [
     (keyword "Push" >> parse_const >>= fun c -> pure (Push c));
     (keyword "Pop" >> pure Pop);
@@ -116,7 +116,6 @@ and parse_coms () =
   let* _ = pure () in  
   many (parse_com () << keyword ";")
 
-
 (* interpreter *)
 
 type stack = value list
@@ -139,7 +138,7 @@ let str_of_int (n : int) : string =
 let rec toString c =
   match c with
   | Int i -> str_of_int i
-  | Bool b -> if b then "True" else "False"  
+  | Bool b -> string_of_bool b
   | Unit -> "Unit"
   | Symbol s -> s
 
@@ -148,12 +147,35 @@ and string_of_value v =
   | Const c -> toString c
   | Closure (f, _, _) -> "Closure (" ^ f ^ ")"
 
+  let rec string_of_com com =
+    match com with
+    | Push c -> "Push " ^ (toString c)
+    | Pop -> "Pop"
+    | Swap -> "Swap"
+    | Trace -> "Trace"
+    | Add -> "Add"
+    | Sub -> "Sub"
+    | Mul -> "Mul"
+    | Div -> "Div"
+    | And -> "And"
+    | Or -> "Or"
+    | Not -> "Not"
+    | Lt -> "Lt"
+    | Gt -> "Gt"
+    | If _ -> "If"
+    | Else -> "Else"
+    | End -> "End"
+    | Bind x -> "Bind " ^ x
+    | Lookup -> "Lookup"
+    | Fun _ -> "Fun"
+    | Call -> "Call"
+    | Return -> "Return"
+
 
 let rec eval (s : stack) (t : trace) (env : environment) (p : prog) : trace =
   match p with
   | [] -> t
   | Push c :: p0 -> 
-    let () = print_endline "Push" in
     eval (Const c :: s) t env p0
   | Pop :: p0 ->
     (match s with
@@ -220,11 +242,13 @@ let rec eval (s : stack) (t : trace) (env : environment) (p : prog) : trace =
 
   
   | Bind x :: p0 ->
+    Printf.printf "Bind\n";
         (match s with
         | v :: s0 -> eval s0 t ((x, v) :: env) p0
         | _ -> eval [] ("Panic" :: t) env [])
 
 | Lookup :: p0 ->
+  Printf.printf "Lookup\n";
   (match s with
   | Const (Symbol x) :: s0 ->
       let rec lookup_symbol x env =
@@ -241,6 +265,7 @@ let rec eval (s : stack) (t : trace) (env : environment) (p : prog) : trace =
   | _ -> eval [] ("Panic" :: t) env [])
 
   | Fun c :: p0 ->
+    Printf.printf "Fun\n";
     (match s with
     | (Const (Symbol x)) :: s0 ->
         let closure = Closure (x, env, c) in
@@ -249,6 +274,7 @@ let rec eval (s : stack) (t : trace) (env : environment) (p : prog) : trace =
         eval [] ("Panic" :: t) env [])
 
 | Call :: p0 ->
+  Printf.printf "Call\n";
     (match s with
     | a :: Closure (f, closure_env, c_body) :: s0 ->
         let new_env = (f, Closure (f, closure_env, c_body)) :: closure_env in
@@ -258,6 +284,7 @@ let rec eval (s : stack) (t : trace) (env : environment) (p : prog) : trace =
 
   
 | Return :: p0 ->
+  Printf.printf "Return\n";
   (match s with
   | v :: s0 ->
       (match v with
@@ -275,6 +302,39 @@ let interp (s : string) : string list option =
   match string_parse (whitespaces >> parse_coms ()) s with
   | Some (p, []) -> Some (eval [] [] [] p)
   | _ -> None
+
+let test_program1 = "Push 3; Push 4; Add; Trace;"
+let expected_result1 = ["Push 3"; "Push 4"; "Add"; "Trace"; "7"]
+
+let test_program2 = "Push True; Not; Trace;"
+let expected_result2 = ["Push True"; "Not"; "Trace"; "False"]
+
+let test_program3 = "Invalid Command;"
+let expected_result3 = [] 
+
+let run_test_case (program : string) (expected_result : string list) : unit =
+  match interp program with
+  | Some trace ->
+      print_endline ("Test with program: " ^ program);
+      print_endline "Expected Output Trace:";
+      List.iter print_endline expected_result;
+      print_endline "Actual Output Trace:";
+      List.iter print_endline trace;
+      if trace = expected_result then
+        print_endline "Test Passed"
+      else
+        print_endline "Test Failed: Actual output does not match expected output"
+  | None ->
+      print_endline ("Test with program: " ^ program);
+      print_endline "Error or empty trace"
+
+let () =
+  run_test_case test_program1 expected_result1;
+  print_newline ();
+  run_test_case test_program2 expected_result2;
+  print_newline ();
+  run_test_case test_program3 expected_result3;
+
 
 (* interp from file *)
 
