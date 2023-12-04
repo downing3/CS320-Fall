@@ -1,20 +1,30 @@
 #use "./../../../classlib/OCaml/MyOCaml.ml";;
 
+type symbol = 
+   | Chr of char 
+   | Dig of symbol * char
+
 (* Abstract syntax tree for constants *)
 type const =
   | Int of int
   | Bool of bool
   | Unit
-  | Symbol of string
+  | Symbol of symbol
 
 and coms = com list
 
 (* Type definition for values *)
 and value =
   | Const of const
-  | Closure of string * environment * coms
+  | Closure of closure
 
 and environment = (string * value) list
+
+and closure = {
+   name: string;
+   environ : environment;
+   body: coms;
+}
 
 (* Extended command types *)
 and com = 
@@ -28,7 +38,7 @@ and com =
   | If of coms * coms
   | Else
   | End
-  | Bind of string
+  | Bind 
   | Lookup
   | Fun of coms
   | Call
@@ -55,6 +65,12 @@ let rec string_of_chars chars =
   | [] -> ""
   | c :: cs -> String.make 1 c ^ string_of_chars cs
 
+let rec custom_assoc x env =
+  match env with
+  | [] -> None
+  | (sym, value) :: rest ->
+    if sym = x then Some value else custom_assoc x rest
+
 let rec choice parsers input =
   match parsers with
   | [] -> None
@@ -78,6 +94,8 @@ let parse_bool =
 let parse_unit =
   keyword "Unit" >> pure Unit
 
+(*ALL PARSERS*)
+
 (* Parser for a single character *)
 let parse_char =
   satisfy (fun c -> ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'))
@@ -88,16 +106,21 @@ let parse_digit_char =
 
 (* Parser for a symbol *)
 let parse_symbol =
-  let* first_char = parse_char in
-  let* rest_chars = many (parse_char <|> parse_digit_char) << whitespaces in
-  pure (Symbol (String.make 1 first_char ^ string_of_chars rest_chars))
+  let rec build_sym acc =
+    (parse_char >>= fun c -> build_sym (Dig (acc, c))) <|>
+    (parse_digit_char >>= fun d -> build_sym (Dig (acc, d))) <|>
+    pure acc
+  in
+  parse_char >>= fun c -> build_sym (Chr c) >>= fun sym -> pure (Symbol sym)
 
+(* Parser for constants, with symbol parsing attempted last *)
 let parse_const =
   parse_int <|>
   parse_bool <|>
   parse_unit <|>
-  parse_symbol
+  parse_symbol  (* Ensure symbol parsing is the last option *)
 
+(* Parser for commands *)
 let rec parse_com () =
   let* _ = pure () in  
   choice [
@@ -114,20 +137,19 @@ let rec parse_com () =
     (keyword "Not" >> pure Not);
     (keyword "Lt" >> pure Lt);
     (keyword "Gt" >> pure Gt);
-    (keyword "If" >> parse_coms () >>= fun if_branch ->
-      keyword "Else" >> parse_coms () >>= fun else_branch ->
+    (keyword "If" >> (whitespaces >> parse_coms ()) >>= fun if_branch ->
+      keyword "Else" >> (whitespaces >> parse_coms ()) >>= fun else_branch ->
       keyword "End" >> pure (If (if_branch, else_branch)));
-    (keyword "Bind" >>
-      (parse_symbol >>= function
-      | Symbol sym -> pure (Bind sym)
-      | _ -> failwith "Expected a symbol after 'Bind'"));
+    (keyword "Bind" >> pure Bind);
     (keyword "Lookup" >> pure Lookup);
-    (keyword "Fun" >> parse_coms () >>= fun body ->
+    (keyword "Fun" >> (whitespaces >> parse_coms ()) >>= fun body ->
       keyword "End" >> pure (Fun body));
     (keyword "Call" >> pure Call);
     (keyword "Return" >> pure Return)
   ]
 
+
+(* Parser for a sequence of commands *)
 and parse_coms () =
   let* _ = pure () in  
   many (parse_com () << keyword ";")
@@ -152,129 +174,130 @@ let str_of_int (n : int) : string =
     string_append "-" (str_of_nat (-n))
   else str_of_nat n
 
+let rec string_of_symbol sym =
+  match sym with
+  | Chr c -> String.make 1 c
+  | Dig (s, c) -> string_of_symbol s ^ String.make 1 c
+
 let rec toString c =
   match c with
   | Int i -> str_of_int i
-  | Bool b -> if b then "True" else "False"  
+  | Bool b -> if b then "True" else "False"
   | Unit -> "Unit"
-  | Symbol s -> s
+  | Symbol s -> string_of_symbol s
 
-and string_of_value v =
-  match v with
-  | Const c -> toString c
-  | Closure (f, _, _) -> "Closure (" ^ f ^ ")"
+let rec retrieve sym env =
+  match env with
+  | [] -> None
+  | (key, value) :: rest ->
+    if key = sym then Some value else retrieve sym rest
 
-let is_closure = function
-  | Closure _ -> true
-  | _ -> false
-
-
-let rec eval (s : stack) (t : trace) (env : environment) (p : prog) : trace =
+let rec eval (s : stack) (t : trace) (v : environment) (p : prog) : trace =
   match p with
   | [] -> t
-  | Push c :: p0 -> 
-    eval (Const c :: s) t env p0
+  | Push c :: p0 -> eval (Const c :: s) t v p0
   | Pop :: p0 ->
     (match s with
-    | _ :: s0 -> eval s0 t env p0
-    | [] -> eval [] ("Panic" :: t) env [])
+    | _ :: s0 -> eval s0 t v p0
+    | [] -> eval [] ("Panic" :: t) v [])
   | Swap :: p0 ->
     (match s with
-    | v1 :: v2 :: s0 -> eval (v2 :: v1 :: s0) t env p0
-    | _ -> eval [] ("Panic" :: t) env [])
+    | c1 :: c2 :: s0 -> eval (c2 :: c1 :: s0) t v p0
+    | _ -> eval [] ("Panic" :: t) v [])
   | Trace :: p0 ->
     (match s with
-    | (Const c) :: s0 -> eval (Const Unit :: s0) (toString c :: t) env p0
-    | _ -> eval [] ("Panic" :: t) env [])
+    | Const c :: s0 -> eval (Const Unit :: s0) (toString c :: t) v p0
+    | _ -> eval [] ("Panic" :: t) v [])
   | Add :: p0 ->
     (match s with
-    | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Int (i + j)) :: s0) t env p0
-    | _ -> eval [] ("Panic" :: t) env [])
+    | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Int (i + j)) :: s0) t v p0
+    | _ -> eval [] ("Panic" :: t) v [])
   | Sub :: p0 ->
     (match s with
-    | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Int (i - j)) :: s0) t env p0
-    | _ -> eval [] ("Panic" :: t) env [])
+    | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Int (i - j)) :: s0) t v p0
+    | _ -> eval [] ("Panic" :: t) v [])
   | Mul :: p0 ->
     (match s with
-    | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Int (i * j)) :: s0) t env p0
-    | _ -> eval [] ("Panic" :: t) env [])
+    | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Int (i * j)) :: s0) t v p0
+    | _ -> eval [] ("Panic" :: t) v [])
   | Div :: p0 ->
     (match s with
-    | Const (Int i) :: Const (Int 0) :: s0 -> eval [] ("Panic" :: t) env []
-    | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Int (i / j)) :: s0) t env p0
-    | _ -> eval [] ("Panic" :: t) env [])
+    | Const (Int i) :: Const (Int 0) :: s0 -> eval [] ("Panic" :: t) v []
+    | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Int (i / j)) :: s0) t v p0
+    | _ -> eval [] ("Panic" :: t) v [])
   | And :: p0 ->
     (match s with
-    | Const (Bool a) :: Const (Bool b) :: s0 -> eval (Const (Bool (a && b)) :: s0) t env p0
-    | _ -> eval [] ("Panic" :: t) env [])
+    | Const (Bool a) :: Const (Bool b) :: s0 -> eval (Const (Bool (a && b)) :: s0) t v p0
+    | _ -> eval [] ("Panic" :: t) v [])
   | Or :: p0 ->
     (match s with
-    | Const (Bool a) :: Const (Bool b) :: s0 -> eval (Const (Bool (a || b)) :: s0) t env p0
-    | _ -> eval [] ("Panic" :: t) env [])
+    | Const (Bool a) :: Const (Bool b) :: s0 -> eval (Const (Bool (a || b)) :: s0) t v p0
+    | _ -> eval [] ("Panic" :: t) v [])
   | Not :: p0 ->
     (match s with
-    | Const (Bool a) :: s0 -> eval (Const (Bool (not a)) :: s0) t env p0
-    | _ -> eval [] ("Panic" :: t) env [])
+    | Const (Bool a) :: s0 -> eval (Const (Bool (not a)) :: s0) t v p0
+    | _ -> eval [] ("Panic" :: t) v [])
   | Lt :: p0 ->
     (match s with
-    | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Bool (i < j)) :: s0) t env p0
-    | _ -> eval [] ("Panic" :: t) env [])
+    | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Bool (i < j)) :: s0) t v p0
+    | _ -> eval [] ("Panic" :: t) v [])
   | Gt :: p0 ->
     (match s with
-    | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Bool (i > j)) :: s0) t env p0
-    | _ -> eval [] ("Panic" :: t) env [])
-  | If (if_branch, else_branch) :: p0 ->
+    | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Bool (i > j)) :: s0) t v p0
+    | _ -> eval [] ("Panic" :: t) v [])
+  | If (c1, c2) :: p0 ->
     (match s with
-    | Const (Bool b) :: s0 -> 
-        let branch_to_execute = if b then if_branch else else_branch in
-        eval s0 t env (branch_to_execute @ p0)
-    | _ -> 
-        eval [] ("Panic" :: t) env [])
-  | Else :: p0 ->
-    eval s t env p0
-  | End :: p0 ->
-    eval s t env p0
-  | Bind x :: p0 ->
+    | Const (Bool b) :: s0 ->
+        let branch = if b then c1 else c2 in
+        eval s0 t v (branch @ p0)
+    | _ -> eval [] ("Panic" :: t) v [])
+  | Bind :: p0 ->
     (match s with
-    | Const (Symbol sym) :: v :: s0 when sym = x -> 
-        let new_env = (sym, v) :: env in
+    | Const (Symbol x) :: v0 :: s0 ->
+        let sym_str = string_of_symbol x in
+        let new_env = (sym_str, v0) :: v in
         eval s0 t new_env p0
-    | [] | [_] ->  
-        eval [] ("Panic" :: t) env []
-    | _ ->  
-       eval [] ("Panic" :: t) env [])
+    | _ -> eval [] ("Panic" :: t) v [])
   | Lookup :: p0 ->
     (match s with
     | Const (Symbol x) :: s0 ->
-        (match List.assoc_opt x env with
-        | Some closure -> eval (closure :: s0) t env p0
-        | None -> 
-            raise (EvalError (UnboundSymbol x)))
-    | _ -> 
-        raise (EvalError NonSymbolArgumentForBind))
-  | Fun body :: p0 ->
-    let closure = Closure ("", env, body) in 
-    eval (closure :: s) t env p0
+        (match custom_assoc (string_of_symbol x) v with
+        | Some v0 -> eval (v0 :: s0) t v p0
+        | None -> eval [] ("Panic" :: t) v [])
+    | _ -> eval [] ("Panic" :: t) v [])
+  | Fun cmd :: End :: p0 ->
+    (match s with
+    | Const (Symbol x) :: s0 ->
+      let closure = { name = string_of_symbol x; environ = v; body = cmd } in
+      eval (Closure closure :: s0) t v p0
+    | _ -> eval [] ("Panic" :: t) v [])
   | Call :: p0 ->
     (match s with
-    | Closure (f, closure_env, closure_commands) :: a :: s0 -> 
-        let new_env = (f, Closure (f, closure_env, closure_commands)) :: closure_env in
-        let current_continuation = Closure ("cc", env, p0) in
-        let new_stack = a :: current_continuation :: s0 in
-        eval new_stack t new_env closure_commands 
-    | _ ->
-        raise (EvalError NonClosureArgumentForCall))
+    | Const (Symbol f) :: a :: s0 ->
+        (match custom_assoc (string_of_symbol f) v with
+        | Some (Closure closure) ->
+            let updated_env = (closure.name, Closure closure) :: closure.environ in
+            let cc = Symbol (Chr 'c') in
+            let new_continuation = Closure { name = ""; environ = v; body = p0 } in
+            let new_stack = a :: new_continuation :: s0 in
+            eval (new_stack) t updated_env closure.body
+        | _ -> eval [] ("Panic" :: t) v [])
+    | _ -> eval [] ("Panic" :: t) v [])
   | Return :: p0 ->
     (match s with
-    | Closure (_, closure_env, closure_commands) :: v :: s0 ->
-        eval (v :: s0) t closure_env closure_commands
-    | _ -> eval [] ("Panic" :: t) env [])
-  
+    | Const (Symbol f) :: a :: s0 ->
+        (match custom_assoc (string_of_symbol f) v with
+        | Some (Closure closure) ->
+            eval (a :: s0) t closure.environ closure.body
+        | _ -> eval [] ("Panic" :: t) v [])
+    | _ -> eval [] ("Panic" :: t) v [])
+
+
 
 (* putting it all together [input -> parser -> eval -> output] *)
 
 let interp (s : string) : string list option =
-  match string_parse (whitespaces >> parse_coms ()) s with
+  match string_parse (whitespaces >> parse_coms()) s with
   | Some (p, []) -> Some (eval [] [] [] p)
   | _ -> None
 
