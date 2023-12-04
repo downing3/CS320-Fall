@@ -34,6 +34,21 @@ and com =
   | Call
   | Return
 
+type eval_err =
+  | StackUnderflow
+  | NonSymbolArgumentForBind
+  | NonClosureArgumentForBind
+  | UnboundSymbol of string
+  | NonSymbolValueForBind
+  | NonClosureArgumentForCall
+  | NonClosureValueForReturn
+  | Panic
+
+exception EvalError of eval_err
+
+type call_stack = (environment * coms) list
+
+
 (* Helper function to convert a list of characters to a string *)
 let rec string_of_chars chars =
   match chars with
@@ -102,9 +117,10 @@ let rec parse_com () =
     (keyword "If" >> parse_coms () >>= fun if_branch ->
       keyword "Else" >> parse_coms () >>= fun else_branch ->
       keyword "End" >> pure (If (if_branch, else_branch)));
-    (keyword "Bind" >> parse_symbol >>= function
+    (keyword "Bind" >>
+      (parse_symbol >>= function
       | Symbol sym -> pure (Bind sym)
-      | _ -> failwith "Non-symbol argument for Bind");
+      | _ -> failwith "Expected a symbol after 'Bind'"));
     (keyword "Lookup" >> pure Lookup);
     (keyword "Fun" >> parse_coms () >>= fun body ->
       keyword "End" >> pure (Fun body));
@@ -126,14 +142,14 @@ type prog = coms
 let rec str_of_nat (n : int) : string =
   let d = n mod 10 in 
   let n0 = n / 10 in
-  let s = String.make 1 (Char.chr (d + int_of_char '0')) in 
+  let s = str (chr (d + ord '0')) in 
   if 0 < n0 then
-    s ^ str_of_nat n0
+    string_append (str_of_nat n0) s
   else s
 
 let str_of_int (n : int) : string = 
   if n < 0 then
-    "-" ^ str_of_nat (-n)
+    string_append "-" (str_of_nat (-n))
   else str_of_nat n
 
 let rec toString c =
@@ -148,12 +164,15 @@ and string_of_value v =
   | Const c -> toString c
   | Closure (f, _, _) -> "Closure (" ^ f ^ ")"
 
+let is_closure = function
+  | Closure _ -> true
+  | _ -> false
+
 
 let rec eval (s : stack) (t : trace) (env : environment) (p : prog) : trace =
   match p with
   | [] -> t
   | Push c :: p0 -> 
-    let () = print_endline "Push" in
     eval (Const c :: s) t env p0
   | Pop :: p0 ->
     (match s with
@@ -204,70 +223,53 @@ let rec eval (s : stack) (t : trace) (env : environment) (p : prog) : trace =
     (match s with
     | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Bool (i > j)) :: s0) t env p0
     | _ -> eval [] ("Panic" :: t) env [])
-
-  | If (c1, c2) :: p0 ->
+  | If (if_branch, else_branch) :: p0 ->
     (match s with
-    | Const (Bool b) :: s0 ->
-        if b then
-            eval s0 t env c1 
-        else
-            eval s0 t env c2 
-    | _ -> eval [] ("Panic" :: t) env [])
+    | Const (Bool b) :: s0 -> 
+        let branch_to_execute = if b then if_branch else else_branch in
+        eval s0 t env (branch_to_execute @ p0)
+    | _ -> 
+        eval [] ("Panic" :: t) env [])
   | Else :: p0 ->
     eval s t env p0
   | End :: p0 ->
     eval s t env p0
-
-  
   | Bind x :: p0 ->
-        (match s with
-        | v :: s0 -> eval s0 t ((x, v) :: env) p0
-        | _ -> eval [] ("Panic" :: t) env [])
-
-| Lookup :: p0 ->
-  (match s with
-  | Const (Symbol x) :: s0 ->
-      let rec lookup_symbol x env =
-        match env with
-        | [] -> eval [] ("Panic" :: t) env []  
-        | (key, valll) :: rest ->
-            if key = x then
-              match valll with
-              | Const cv -> eval (Const cv :: s0) t env p0
-              | _ -> eval [] ("Panic" :: t) env []
-            else lookup_symbol x rest
-      in
-      lookup_symbol x env
-  | _ -> eval [] ("Panic" :: t) env [])
-
-  | Fun c :: p0 ->
     (match s with
-    | (Const (Symbol x)) :: s0 ->
-        let closure = Closure (x, env, c) in
-        eval (closure :: s0) t env p0 
-    | _ ->
-        eval [] ("Panic" :: t) env [])
-
-| Call :: p0 ->
+    | Const (Symbol sym) :: v :: s0 when sym = x -> 
+        let new_env = (sym, v) :: env in
+        eval s0 t new_env p0
+    | [] | [_] ->  
+        eval [] ("Panic" :: t) env []
+    | _ ->  
+       eval [] ("Panic" :: t) env [])
+  | Lookup :: p0 ->
     (match s with
-    | a :: Closure (f, closure_env, c_body) :: s0 ->
-        let new_env = (f, Closure (f, closure_env, c_body)) :: closure_env in
-        eval [a] t new_env c_body 
+    | Const (Symbol x) :: s0 ->
+        (match List.assoc_opt x env with
+        | Some closure -> eval (closure :: s0) t env p0
+        | None -> 
+            raise (EvalError (UnboundSymbol x)))
+    | _ -> 
+        raise (EvalError NonSymbolArgumentForBind))
+  | Fun body :: p0 ->
+    let closure = Closure ("", env, body) in 
+    eval (closure :: s) t env p0
+  | Call :: p0 ->
+    (match s with
+    | Closure (f, closure_env, closure_commands) :: a :: s0 -> 
+        let new_env = (f, Closure (f, closure_env, closure_commands)) :: closure_env in
+        let current_continuation = Closure ("cc", env, p0) in
+        let new_stack = a :: current_continuation :: s0 in
+        eval new_stack t new_env closure_commands 
     | _ ->
-        eval [] ("Panic" :: t) env [])
-
+        raise (EvalError NonClosureArgumentForCall))
+  | Return :: p0 ->
+    (match s with
+    | Closure (_, closure_env, closure_commands) :: v :: s0 ->
+        eval (v :: s0) t closure_env closure_commands
+    | _ -> eval [] ("Panic" :: t) env [])
   
-| Return :: p0 ->
-  (match s with
-  | v :: s0 ->
-      (match v with
-      | Closure (_, closure_env, _) ->
-          eval s0 t closure_env p0 
-      | _ ->
-          eval [] ("Panic" :: t) env [])
-  | _ ->
-      eval [] ("Panic" :: t) env [])
-
 
 (* putting it all together [input -> parser -> eval -> output] *)
 
