@@ -15,7 +15,7 @@ Notes:
 (* type definitions for symbols and constants *)
 type symbol = 
    | Char of char 
-   | Digi of symbol * char
+   | CDig of symbol * char
 
 type const =
    | Int of int
@@ -85,7 +85,7 @@ let str_of_int(n: int): string =
 let rec str_of_sym(s: symbol): string =
    match s with 
    | Char c -> str c
-   | Digi (s1, c1) -> string_append (str_of_sym s1) (str c1)
+   | CDig (s1, c1) -> string_append (str_of_sym s1) (str c1)
 
 (* convert constant to string representation *)
 let toString(c: const): string =
@@ -132,9 +132,9 @@ let rec sym_parser =
 
   let rec combine_symbol_parsers acc =
     (char_parser >>= fun c ->
-      combine_symbol_parsers (Digi (acc, c))) <|>
+      combine_symbol_parsers (CDig (acc, c))) <|>
     (digit_parser >>= fun d ->
-      combine_symbol_parsers (Digi (acc, d)))
+      combine_symbol_parsers (CDig (acc, d)))
     <|>
     pure acc
   in
