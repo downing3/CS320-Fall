@@ -1,5 +1,18 @@
 #use "./../../../classlib/OCaml/MyOCaml.ml";;
 
+(*
+
+Please implement the interp function following the
+specifications described in CS320_Fall_2023_Project-1.pdf
+
+Notes:
+1. You are only allowed to use library functions defined in MyOCaml.ml
+   or ones you implement yourself.
+2. You may NOT use OCaml standard library functions directly.
+
+*)
+
+(* type definitions for symbols and constants *)
 type symbol = 
    | Char of char 
    | CDig of symbol * char
@@ -10,6 +23,7 @@ type const =
    | Unit
    | Sym of symbol
 
+(* type definitions for commands and composite structures *)
 type com =
    | Push of const | Pop | Swap | Trace
    | Add | Sub | Mul | Div
@@ -25,31 +39,26 @@ type value =
     | Const of const 
     | Closure of closure
 
-and enviornment = (string * value) list
-
-and closure = symbol * enviornment * coms
-
 type stack = value list 
-
 type trace = string list 
-
 type prog = coms
 
+and enviornment = (string * value) list
+and closure = symbol * enviornment * coms
 
-(* HELPER FUNCTIONS *)
+(* ------------------------------------------------------------ *)
 
-let is_lower_case c =
+(* helper functions for character checks and string conversions *)
+let uppercase c =
+  'A' <= c && c <= 'Z'
+let lowercase c =
    'a' <= c && c <= 'z'
-
-let is_upper_case c =
-   'A' <= c && c <= 'Z'
-
 let is_alpha c =
-   is_lower_case c || is_upper_case c
-
-let is_digit c =
+  lowercase c || uppercase c
+let is_dig c =
    '0' <= c && c <= '9'
 
+(* environment lookup function *)
 let rec lookup_env (name: string) (env: enviornment) : value =
   match env with
   | (x, v_value) :: rest ->
@@ -57,6 +66,7 @@ let rec lookup_env (name: string) (env: enviornment) : value =
     else lookup_env name rest
   | [] -> failwith "Variable not found in environment"
 
+(* string conversion functions *)
 let rec str_of_nat(n: int): string = 
    let d = n mod 10 in 
    let n0 = n / 10 in
@@ -77,6 +87,7 @@ let rec str_of_sym(s: symbol): string =
    | Char c -> str c
    | CDig (s1, c1) -> string_append (str_of_sym s1) (str c1)
 
+(* convert constant to string representation *)
 let toString(c: const): string =
    match c with 
    | Int i -> str_of_int i
@@ -85,6 +96,10 @@ let toString(c: const): string =
    | Unit -> "Unit"
    | Sym x -> str_of_sym x
 
+  (* ------------------------------------------------------------ *)
+
+
+(* parsers for different types of constants *)
 let nat_parser = 
    let* n = natural << whitespaces in 
       pure n
@@ -108,7 +123,7 @@ let char_parser =
    satisfy is_alpha
 
 let digit_parser = 
-   satisfy is_digit
+   satisfy is_dig
 
 let rec sym_parser =
   let char_sym_parser =
@@ -140,45 +155,27 @@ let const_parser =
 
 let rec com_parser input =
    ((keyword "Push" >> const_parser >>= fun c ->
-      pure (Push c))
-   <|>
-   (keyword "Pop" >> pure Pop)
-   <|>
-   (keyword "Swap" >> pure Swap)
-   <|>
-   (keyword "Trace" >> pure Trace)
-   <|>
-   (keyword "Add" >> pure Add)
-   <|>
-   (keyword "Sub" >> pure Sub)
-   <|>
-   (keyword "Mul" >> pure Mul)
-   <|>
-   (keyword "Div" >> pure Div)
-   <|>
-   (keyword "And" >> pure And)
-   <|>
-   (keyword "Or" >> pure Or)
-   <|>
-   (keyword "Not" >> pure Not)
-   <|>
-   (keyword "Lt" >> pure Lt)
-   <|>
-   (keyword "Gt" >> pure Gt)
-   <|>
-   (keyword "If" >> coms_parser >>= fun c1 ->
-      keyword "Else" >> coms_parser >>= fun c2 ->
-      keyword "End" >> pure (If (c1, c2)))
-   <|> 
-   (keyword "Bind" >> pure Bind)
-   <|>
-   (keyword "Lookup" >> pure Lookup)
-   <|>
-   (keyword "Fun" >> coms_parser >>= fun c ->
-      keyword "End" >> pure (Fun c))
-   <|>
-   (keyword "Call" >> pure Call)
-   <|>
+      pure (Push c)) <|>
+   (keyword "Pop" >> pure Pop) <|>
+   (keyword "Swap" >> pure Swap) <|>
+   (keyword "Trace" >> pure Trace) <|>
+   (keyword "Add" >> pure Add) <|>
+   (keyword "Sub" >> pure Sub) <|>
+   (keyword "Mul" >> pure Mul) <|>
+   (keyword "Div" >> pure Div) <|>
+   (keyword "And" >> pure And) <|>
+   (keyword "Or" >> pure Or) <|>
+   (keyword "Not" >> pure Not) <|>
+   (keyword "Lt" >> pure Lt) <|>
+   (keyword "Gt" >> pure Gt) <|>
+   (keyword "If" >> coms_parser >>= fun c1 ->  (* parse the 'If' keyword followed by a sequence of commands (c1) *)
+      keyword "Else" >> coms_parser >>= fun c2 -> (* after 'If', parse the 'Else' keyword followed by another sequence of commands (c2) *)
+      keyword "End" >> pure (If (c1, c2))) <|>  (* last, parse the 'End' keyword and construct an 'If' command with the two command sequences (c1 and c2) *)
+   (keyword "Bind" >> pure Bind) <|>
+   (keyword "Lookup" >> pure Lookup) <|>
+   (keyword "Fun" >> coms_parser >>= fun c -> (* parse the 'Fun' keyword followed by a sequence of commands (c) *)
+      keyword "End" >> pure (Fun c)) <|>  (* after parsing the commands, parse the 'End' keyword and construct a 'Fun' command with the command sequence (c) *)
+   (keyword "Call" >> pure Call) <|>
    (keyword "Return" >> pure Return)) input
 
 and coms_parser input =   
@@ -187,23 +184,24 @@ and coms_parser input =
 
 let rec eval (s : stack) (t : trace) (v : enviornment) (p : prog) : trace =
   match p with
+  (* termination state returns the trace *)
   | [] -> t
-  | Push c :: p0 -> eval (Const c :: s) t v p0
+  | Push c :: p0 -> eval (Const c :: s) t v p0 (*push a constant onto th stack*)
   | Pop :: p0 ->
     (match s with
     | _ :: s0 -> eval s0 t v p0
-    | [] -> eval [] ("Panic" :: t) v [])
-  | Swap :: p0 ->
+    | [] -> eval [] ("Panic" :: t) v []) (*if stack is empty, panic*)
+  | Swap :: p0 -> (*swap top two elemnts of the stack*)
     (match s with
     | c1 :: c2 :: s0 -> eval (c2 :: c1 :: s0) t v p0
-    | _ -> eval [] ("Panic" :: t) v [])
+    | _ -> eval [] ("Panic" :: t) v []) (*panic if less than two elements*)
   | Trace :: p0 ->
     (match s with
-    | Const c :: s0 -> eval (Const Unit :: s0) (toString c :: t) v p0
-    | _ -> eval [] ("Panic" :: t) v [])
+    | Const c :: s0 -> eval (Const Unit :: s0) (toString c :: t) v p0 (*trace top element of stack*)
+    | _ -> eval [] ("Panic" :: t) v []) (*panic if empty stack*)
   | Add :: p0 ->
     (match s with
-    | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Int (i + j)) :: s0) t v p0
+    | Const (Int i) :: Const (Int j) :: s0 -> eval (Const (Int (i + j)) :: s0) t v p0 (*these are all pretty self explanatory and are just edits of the class solution from part1*)
     | _ -> eval [] ("Panic" :: t) v [])
   | Sub :: p0 ->
     (match s with
@@ -244,7 +242,7 @@ let rec eval (s : stack) (t : trace) (v : enviornment) (p : prog) : trace =
         let branch = if b then c1 else c2 in
         eval s0 t v (branch @ p0)
     | _ -> eval [] ("Panic" :: t) v [])
-   | Bind :: p0 -> 
+   | Bind :: p0 ->  (*bind a symbol to a value*)
   (match s with 
   | Const (Sym x) :: value :: s0 -> 
     eval s0 t ((str_of_sym x, value) :: v) p0 
@@ -262,14 +260,14 @@ let rec eval (s : stack) (t : trace) (v : enviornment) (p : prog) : trace =
   | Fun c :: p0 ->
     (match s with 
     | Const (Sym x) :: s0 -> 
-      eval (Closure (x, v, c) :: s0) t v p0
+      eval (Closure (x, v, c) :: s0) t v p0 (*create new function closure*)
     | _ :: s0 -> eval [] ("Panic" :: t) v []
     | [] -> eval [] ("Panic" :: t) v [])
 
   | Call :: p0 -> 
     (match s with
     | Closure (f, vf, c) :: a :: s0 ->
-      eval (a :: Closure (f, v, p0) :: s0) t ((str_of_sym f, Closure (f, vf, c)) :: vf) c
+      eval (a :: Closure (f, v, p0) :: s0) t ((str_of_sym f, Closure (f, vf, c)) :: vf) c (*calling  a fucntion closure*)
     | _ :: a :: s0 -> eval [] ("Panic" :: t) v []
     | _ :: s0 -> eval [] ("Panic" :: t) v []
     | [] -> eval [] ("Panic" :: t) v [])
@@ -277,16 +275,23 @@ let rec eval (s : stack) (t : trace) (v : enviornment) (p : prog) : trace =
   | Return :: p0 -> 
     (match s with 
     | Closure (f, vf, c) :: a :: s0 ->
-      eval (a :: s0) t vf c
+      eval (a :: s0) t vf c (*return a fucntion call*)
     | _ :: a :: s0 -> eval [] ("Panic" :: t) v []
     | _ :: s0 -> eval [] ("Panic" :: t) v []
     | [] -> eval [] ("Panic" :: t) v [])
+
+(* ------------------------------------------------------------ *)
+
+(* putting it all together [input -> parser -> eval -> output] *)
 
 let interp (s: string): string list option =
    match string_parse (whitespaces >> coms_parser) s with
   | Some (p, []) -> Some (eval [] [] [] p)
   | _ -> None
 
+(* ------------------------------------------------------------ *)
+
+(* interp from file *)
 
 let read_file (fname: string): string =
    let fp = open_in fname in
