@@ -125,75 +125,50 @@ let char_parser =
 let digit_parser = 
    satisfy is_digit
 
-let rec sym_parser =
-  let char_sym_parser =
+let rec symbol_parser =
+  let character_symbol_parser =
     char_parser >>= fun c -> pure (Char c)
   in
 
-  let rec concat_sym_parser acc =
+  let rec combine_parsers acc =
     (char_parser >>= fun c ->
-      concat_sym_parser (CDig (acc, c)))
-    <|>
+      combine_parsers (CDig (acc, c))) <|>
     (digit_parser >>= fun d ->
-      concat_sym_parser (CDig (acc, d)))
-    <|>
+      combine_parsers (CDig (acc, d))) <|>
     pure acc
   in
+  character_symbol_parser >>= combine_parsers
 
-  char_sym_parser >>= concat_sym_parser
-
-
-let const_parser =
-   int_parser
-   <|>
-   bool_parser
-   <|>
-   unit_parser
-   <|>
-   (sym_parser >>= fun s ->
+let constant_parser =
+   int_parser <|>
+   bool_parser <|>
+   unit_parser <|>
+   (symbol_parser >>= fun s ->
       pure (Sym s))
 
 let rec com_parser input =
-   ((keyword "Push" >> const_parser >>= fun c ->
-      pure (Push c))
-   <|>
-   (keyword "Pop" >> pure Pop)
-   <|>
-   (keyword "Swap" >> pure Swap)
-   <|>
-   (keyword "Trace" >> pure Trace)
-   <|>
-   (keyword "Add" >> pure Add)
-   <|>
-   (keyword "Sub" >> pure Sub)
-   <|>
-   (keyword "Mul" >> pure Mul)
-   <|>
-   (keyword "Div" >> pure Div)
-   <|>
-   (keyword "And" >> pure And)
-   <|>
-   (keyword "Or" >> pure Or)
-   <|>
-   (keyword "Not" >> pure Not)
-   <|>
-   (keyword "Lt" >> pure Lt)
-   <|>
-   (keyword "Gt" >> pure Gt)
-   <|>
+   ((keyword "Push" >> constant_parser >>= fun c ->
+      pure (Push c)) <|>
+   (keyword "Pop" >> pure Pop) <|>
+   (keyword "Swap" >> pure Swap) <|>
+   (keyword "Trace" >> pure Trace) <|>
+   (keyword "Add" >> pure Add) <|>
+   (keyword "Sub" >> pure Sub) <|>
+   (keyword "Mul" >> pure Mul) <|>
+   (keyword "Div" >> pure Div) <|>
+   (keyword "And" >> pure And) <|>
+   (keyword "Or" >> pure Or) <|>
+   (keyword "Not" >> pure Not) <|>
+   (keyword "Lt" >> pure Lt) <|>
+   (keyword "Gt" >> pure Gt) <|>
    (keyword "If" >> coms_parser >>= fun c1 -> (* parse the 'If' keyword followed by a sequence of commands (c1) *)
       keyword "Else" >> coms_parser >>= fun c2 -> (* after 'If', parse the 'Else' keyword followed by another sequence of commands (c2) *)
-      keyword "End" >> pure (If (c1, c2))) (* last, parse the 'End' keyword and construct an 'If' command with the two command sequences (c1 and c2) *)
-   <|> 
-   (keyword "Bind" >> pure Bind)
-   <|>
-   (keyword "Lookup" >> pure Lookup)
-   <|>
+      keyword "End" >> pure (If (c1, c2))) <|> (* last, parse the 'End' keyword and construct an 'If' command with the two command sequences (c1 and c2) *)
+   (keyword "Bind" >> pure Bind) <|>
+   (keyword "Lookup" >> pure Lookup) <|>
    (keyword "Fun" >> coms_parser >>= fun c -> (* parse the 'Fun' keyword followed by a sequence of commands (c) *)
-      keyword "End" >> pure (Fun c)) (* after parsing the commands, parse the 'End' keyword and construct a 'Fun' command with the command sequence (c) *)
-   <|>
-   (keyword "Call" >> pure Call)
-   <|>
+      keyword "End" >> pure (Fun c)) <|> (* after parsing the commands, parse the 'End' keyword and construct a 'Fun' command with the command sequence (c) *)
+   (keyword "Call" >> pure Call) <|>
    (keyword "Return" >> pure Return)) input
 
 and coms_parser input =   
