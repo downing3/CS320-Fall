@@ -40,15 +40,11 @@ type value =
     | Closure of closure
 
 and enviornment = (string * value) list
-
 and closure = symbol * enviornment * coms
 
 type stack = value list 
-
 type trace = string list 
-
 type prog = coms
-
 
 (* ------------------------------------------------------------ *)
 
@@ -71,25 +67,25 @@ let rec lookup_env (name: string) (env: enviornment) : value =
   | [] -> failwith "Var not found"
 
 (* string conversion functions *)
-let rec str_of_nat(n: int): string = 
+let rec int_to_string(n: int): string = 
    let d = n mod 10 in 
    let n0 = n / 10 in
    let s = str (chr(d + ord '0')) in 
    if 0 < n0 then
-      string_append(str_of_nat n0) s
+      string_append(int_to_string n0) s
    else 
       s
 
 let str_of_int(n: int): string = 
    if n < 0 then
-      string_append "-" (str_of_nat (-n))
+      string_append "-" (int_to_string (-n))
    else 
-      str_of_nat n
+    int_to_string n
 
-let rec str_of_sym(s: symbol): string =
+let rec string_of_symbols(s: symbol): string =
    match s with 
    | Char c -> str c
-   | CDig (s1, c1) -> string_append (str_of_sym s1) (str c1)
+   | CDig (s1, c1) -> string_append (string_of_symbols s1) (str c1)
 
 (* convert constant to string representation *)
 let toString(c: const): string =
