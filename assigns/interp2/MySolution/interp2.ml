@@ -94,7 +94,7 @@ let toString(c: const): string =
    | Bool true -> "True"
    | Bool false -> "False"
    | Unit -> "Unit"
-   | Sym x -> str_of_sym x
+   | Sym x -> string_of_symbols x
 
   (* ------------------------------------------------------------ *)
 
@@ -262,14 +262,14 @@ let rec eval (s : stack) (t : trace) (v : enviornment) (p : prog) : trace =
    | Bind :: p0 -> 
   (match s with 
   | Const (Sym x) :: value :: s0 -> 
-    eval s0 t ((str_of_sym x, value) :: v) p0 
+    eval s0 t ((string_of_symbols x, value) :: v) p0 
   | _ :: value :: s0 -> eval [] ("Panic" :: t) v []
   | _ :: s0 -> eval [] ("Panic" :: t) v []
   | [] -> eval [] ("Panic" :: t) v [])
   | Lookup :: p0 ->
     (match s with 
     | Const (Sym x) :: s0 -> 
-      let found = lookup_env (str_of_sym x) v in 
+      let found = lookup_env (string_of_symbols x) v in 
       eval (found :: s0) t v p0
     | _ :: s0 -> eval [] ("Panic" :: t) v []
     | [] -> eval [] ("Panic" :: t) v [])
@@ -284,7 +284,7 @@ let rec eval (s : stack) (t : trace) (v : enviornment) (p : prog) : trace =
   | Call :: p0 -> 
     (match s with
     | Closure (f, vf, c) :: a :: s0 ->
-      eval (a :: Closure (f, v, p0) :: s0) t ((str_of_sym f, Closure (f, vf, c)) :: vf) c (*calling  a fucntion closure*)
+      eval (a :: Closure (f, v, p0) :: s0) t ((string_of_symbols f, Closure (f, vf, c)) :: vf) c (*calling  a fucntion closure*)
     | _ :: a :: s0 -> eval [] ("Panic" :: t) v []
     | _ :: s0 -> eval [] ("Panic" :: t) v []
     | [] -> eval [] ("Panic" :: t) v [])
