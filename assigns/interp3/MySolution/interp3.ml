@@ -328,21 +328,21 @@ let parse_prog (s : string) : expr =
   | Some (m, []) -> scope_expr m
   | _ -> raise SyntaxError
 
-  let rec compile_expression = function
+let rec compile_expression = function
   | Int(n) -> Printf.sprintf "Push %d" n 
   | Bool(b) -> Printf.sprintf "Push %s" (if b then "True" else "False")
   | Unit -> "Push Unit"
 
-  | UOpr(opr, m) ->
+  | UOpr(operation, m) ->
     let cm = compile_expression m in
-    (match opr with
+    (match operation with
      | Neg -> cm ^ "; Neg"
      | Not -> cm ^ "; Not")
 
-  | BOpr(opr, m, n) ->
+  | BOpr(operation, m, n) ->
     let cm = compile_expression m in
     let cn = compile_expression n in
-    (match opr with
+    (match operation with
      | Add -> cm ^ "; " ^ cn ^ "; Add"
      | Sub -> cm ^ "; " ^ cn ^ "; Sub"
      | Mul -> cm ^ "; " ^ cn ^ "; Mul"
@@ -366,15 +366,15 @@ let parse_prog (s : string) : expr =
   | App(m, n) ->
     let cm = compile_expression m in
     let cn = compile_expression n in
-    cm ^ "; " ^ cn ^ "; Call"
+    cn ^ "; " ^ cm ^ "; Call"
 
   | Seq(m, n) ->
     let cm = compile_expression m in
     let cn = compile_expression n in
     cm ^ "; Pop; " ^ cn
 
-  | Ifte(cond, if_branch, else_branch) ->
-    let ccond = compile_expression cond in
+  | Ifte(condition, if_branch, else_branch) ->
+    let ccond = compile_expression condition in
     let cif = compile_expression if_branch in
     let celse = compile_expression else_branch in
     ccond ^ "; Ifte [ " ^ cif ^ " ] [ " ^ celse ^ " ]"
@@ -385,7 +385,7 @@ let parse_prog (s : string) : expr =
 
   | Fun(f, x, m) ->
     let cm = compile_expression m in
-    "Fun [ Push " ^ f ^ "; " ^ cm ^ " ]; End"
+    Printf.sprintf "Fun %s %s; %s; End" f x cm
 
 let compile (s : string) : string =
   let ast = parse_prog s in
