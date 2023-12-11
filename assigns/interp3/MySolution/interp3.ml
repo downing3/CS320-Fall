@@ -347,7 +347,7 @@ let rec compile_expression = function
   let cn = compile_expression n in
   let op_cmd = match operation with
     | Add -> "Add"
-    | Sub -> "Swap; Sub"  (* Swap needed if the stack language expects reverse order *)
+    | Sub -> "Swap; Sub"  
     | Mul -> "Swap; Mul"
     | Div -> "Swap; Div"
     | Mod -> "Mod"
