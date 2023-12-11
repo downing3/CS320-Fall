@@ -328,80 +328,84 @@ let parse_prog (s : string) : expr =
   | Some (m, []) -> scope_expr m
   | _ -> raise SyntaxError
 
-let rec compile_expression scope = function
-  | Int(n) -> "Push " ^ string_of_int n 
-  | Bool(b) -> "Push " ^ (if b then "True" else "False")
-  | Unit -> "Push Unit"
+let rec compile_int x = 
+  "Push " ^ string_of_int x ^ "; "
 
-  | Var(x) ->
-    (match find_var scope x with
-    | None -> raise (UnboundVariable x)
-    | Some v -> "Push " ^ v ^ "; Lookup;")
+and compile_bool x =
+  if x then "Push True; " else "Push False; "
+    
+and compile_var x =
+  "Push " ^ x ^ "; Lookup; "
+    
+and compile_opr op x =
+  match op with
+  | Neg ->
+    compile_expression x ^ "Push -1; Mul; "
+  | Not ->
+    compile_expression x ^ "Not; "
+          
+and compile_bopr op x y =
+  match op with
+  | Add ->
+    compile_expression x ^ compile_expression y ^ "Add; "
+  | Sub ->
+    compile_expression x ^ compile_expression y ^ "Swap; Sub; "
+  | Mul ->
+    compile_expression x ^ compile_expression y ^ "Mul; "
+  | Div ->
+    compile_expression x ^ compile_expression y ^ "Swap; Div; "
+  | Mod ->
+    compile_expression (BOpr(Div, x, y)) ^ compile_expression y ^ "Mul; " ^ compile_expression x ^ "Sub; "
+  | And ->
+    compile_expression x ^ compile_expression y ^ "And; "
+  | Or ->
+    compile_expression x ^ compile_expression y ^ "Or; "
+  | Lt ->
+    compile_expression x ^ compile_expression y ^ "Swap; Lt; "
+  | Gt ->
+    compile_expression x ^ compile_expression y ^ "Swap; Gt; "
+  | Lte ->
+    compile_expression x ^ compile_expression y ^ "Swap; Gt; Not; "
+  | Gte ->
+    compile_expression x ^ compile_expression y ^ "Swap; Lt; Not; "
+  | Eq ->
+    compile_expression x ^ compile_expression y ^ "Swap; Gt; Not; " ^ compile_expression x ^ compile_expression y ^ "Swap; Lt; Not; And; "
 
-  | UOpr(operation, m) ->
-    let cm = compile_expression scope m in
-    cm ^ "; " ^ (match operation with
-                 | Neg -> "Neg"
-                 | Not -> "Not")
+and compile_let v x y =
+  compile_expression x ^ "Push " ^ v ^ "; Bind; " ^ compile_expression y
+    
+and compile_fun f v x =
+  "Push " ^ f ^ "; Fun " ^ "Push " ^ v ^ "; Bind; " ^ compile_expression x ^ "Swap; Return; End; "
+  
+and compile_app f v =
+  compile_expression f ^ compile_expression v ^ "Swap; Call; "
 
-  | BOpr(operation, m, n) ->
-    let cm = compile_expression scope m in
-    let cn = compile_expression scope n in
-    (match operation with
-      | Add -> cm ^ "; " ^ cn ^ "; Add"
-      | Sub -> cm ^ "; " ^ cn ^ "; Swap; Sub"
-      | Mul -> cm ^ "; " ^ cn ^ "; Mul"
-      | Div -> cm ^ "; " ^ cn ^ "; Swap; Div"
-      | Mod -> cm ^ "; " ^ cn ^ "; Swap; Div; Swap; Push " ^ cm ^ "; Mul; Swap; Sub"
-      | And -> cm ^ "; " ^ cn ^ "; And"
-      | Or -> cm ^ "; " ^ cn ^ "; Or"
-      | Lt -> cm ^ "; " ^ cn ^ "; Lt"
-      | Gt -> cm ^ "; " ^ cn ^ "; Gt"
-      | Lte -> cm ^ "; " ^ cn ^ "; Lte"
-      | Gte -> cm ^ "; " ^ cn ^ "; Gte"
-      | Eq -> cm ^ "; " ^ cn ^ "; Eq")
+and compile_seq x y =
+  compile_expression x ^ "Pop; " ^ compile_expression y
+  
+and compile_ifte x y z =
+  compile_expression x ^ "If " ^ compile_expression y ^ "Else " ^ compile_expression z ^ "End; "
+  
+and compile_trace x =
+  compile_expression x ^ "Trace; "
+    
+and compile_expression i =
+  match i with
+  | Int x -> compile_int x
+  | Bool x -> compile_bool x
+  | Var x -> compile_var x
+  | Unit -> "Push Unit; "
+  | UOpr (op, x) -> compile_opr op x
+  | BOpr (op, x, y) -> compile_bopr op x y
+  | Let (v, x, y) -> compile_let v x y
+  | Fun (f, v, x) -> compile_fun f v x
+  | App (f, v) -> compile_app f v
+  | Seq (x, y) -> compile_seq x y
+  | Ifte (x, y, z) -> compile_ifte x y z
+  | Trace x -> compile_trace x
 
-  | Fun(f, x, m) ->
-    let fv = new_var f in
-    let f_scope = (f, fv) :: scope in
-    let xv = new_var x in
-    let x_f_scope = (x, xv) :: f_scope in
-    let cm = compile_expression x_f_scope m in
-    if f = "" then
-      "Fun Push " ^ xv ^ "; Bind; " ^ cm ^ "; Swap; Return; End"
-    else
-      "Push " ^ fv ^ "; Fun Push " ^ xv ^ "; Bind; " ^ cm ^ "; Swap; Return; End; Push " ^ fv ^ "; Bind"
-
-  | Let(x, m, n) ->
-    let cm = compile_expression scope m in
-    let xvar = new_var x in
-    let updated_scope = (x, xvar) :: scope in
-    let cn = compile_expression updated_scope n in
-    cm ^ "; Push " ^ xvar ^ "; Bind; " ^ cn
-
-  | App(m, n) ->
-    let cm = compile_expression scope m in
-    let cn = compile_expression scope n in
-    cn ^ "; " ^ cm ^ "; Call"
-
-  | Seq(m, n) ->
-    let cm = compile_expression scope m in
-    let cn = compile_expression scope n in
-    cm ^ "; " ^ cn
-
-  | Ifte(condition, if_branch, else_branch) ->
-    let ccond = compile_expression scope condition in
-    let cif = compile_expression scope if_branch in
-    let celse = compile_expression scope else_branch in
-    ccond ^ "; If " ^ cif ^ " Else " ^ celse ^ " End"
-
-  | Trace(m) ->
-    let cm = compile_expression scope m in
-    cm ^ "; Trace; Pop;"
-
-let compile (s : string) : string =
-  let ast = parse_prog s in
-  compile_expression [] ast
+let compile (s: string) : string = 
+  compile_expression(parse_prog(s))
 
 
 
