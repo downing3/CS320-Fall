@@ -329,63 +329,71 @@ let parse_prog (s : string) : expr =
   | _ -> raise SyntaxError
 
 let rec compile_int x = 
-  "Push " ^ string_of_int x ^ "; "
+  "Push " ^ string_of_int x ^ "; " (*Push int onto the stack*)
 
 and compile_bool x =
-  if x then "Push True; " else "Push False; "
+  if x then "Push True; " else "Push False; " (*Push boolean onto the stock*)
     
 and compile_var x =
-  "Push " ^ x ^ "; Lookup; "
+  "Push " ^ x ^ "; Lookup; " (*Push variable onto the stack and lookup*)
     
-and compile_opr op x =
+(*Unary Operations*)
+and compile_unopr op x =
   match op with
   | Neg ->
-    compile_expression x ^ "Push -1; Mul; "
+    compile_expression x ^ "Push -1; Mul; " (*Integer Negation*)
   | Not ->
-    compile_expression x ^ "Not; "
+    compile_expression x ^ "Not; " (*Boolean Not*)
           
+(*Binary Operations*)
 and compile_bopr op x y =
   match op with
-  | Add ->
+  | Add -> (*Integer Addition*)
     compile_expression x ^ compile_expression y ^ "Add; "
-  | Sub ->
+  | Sub -> (*Integer Subtraction*)
     compile_expression x ^ compile_expression y ^ "Swap; Sub; "
-  | Mul ->
+  | Mul -> (*Integer Multiplication*)
     compile_expression x ^ compile_expression y ^ "Mul; "
-  | Div ->
+  | Div -> (*Integer Division*)
     compile_expression x ^ compile_expression y ^ "Swap; Div; "
-  | Mod ->
+  | Mod -> (*Integer Modulo*)
     compile_expression (BOpr(Div, x, y)) ^ compile_expression y ^ "Mul; " ^ compile_expression x ^ "Sub; "
-  | And ->
+  | And -> (*Boolean And*)
     compile_expression x ^ compile_expression y ^ "And; "
-  | Or ->
+  | Or -> (*Boolean Or*)
     compile_expression x ^ compile_expression y ^ "Or; "
-  | Lt ->
+  | Lt -> (*Integer Less-Than*)
     compile_expression x ^ compile_expression y ^ "Swap; Lt; "
-  | Gt ->
+  | Gt -> (*Integer Greater-Than*)
     compile_expression x ^ compile_expression y ^ "Swap; Gt; "
-  | Lte ->
+  | Lte -> (*Integer Less-Than-Equal*)
     compile_expression x ^ compile_expression y ^ "Swap; Gt; Not; "
-  | Gte ->
+  | Gte -> (*Integer Greater-Than-Equal*)
     compile_expression x ^ compile_expression y ^ "Swap; Lt; Not; "
-  | Eq ->
+  | Eq -> (*Integer Equality*)
     compile_expression x ^ compile_expression y ^ "Swap; Gt; Not; " ^ compile_expression x ^ compile_expression y ^ "Swap; Lt; Not; And; "
 
-and compile_let v x y =
+(*Let-In Expression*)
+and compile_letin v x y =
   compile_expression x ^ "Push " ^ v ^ "; Bind; " ^ compile_expression y
     
+(*Function Application*)
 and compile_fun f v x =
   "Push " ^ f ^ "; Fun " ^ "Push " ^ v ^ "; Bind; " ^ compile_expression x ^ "Swap; Return; End; "
   
+(*Function Application*)
 and compile_app f v =
   compile_expression f ^ compile_expression v ^ "Swap; Call; "
 
+(*Sequence Expression*)
 and compile_seq x y =
   compile_expression x ^ "Pop; " ^ compile_expression y
   
+(*If-Then-Else Expression*)
 and compile_ifte x y z =
   compile_expression x ^ "If " ^ compile_expression y ^ "Else " ^ compile_expression z ^ "End; "
   
+(*Trace Expression*)
 and compile_trace x =
   compile_expression x ^ "Trace; "
     
@@ -395,9 +403,9 @@ and compile_expression i =
   | Bool x -> compile_bool x
   | Var x -> compile_var x
   | Unit -> "Push Unit; "
-  | UOpr (op, x) -> compile_opr op x
+  | UOpr (op, x) -> compile_unopr op x
   | BOpr (op, x, y) -> compile_bopr op x y
-  | Let (v, x, y) -> compile_let v x y
+  | Let (v, x, y) -> compile_letin v x y
   | Fun (f, v, x) -> compile_fun f v x
   | App (f, v) -> compile_app f v
   | Seq (x, y) -> compile_seq x y
