@@ -16,24 +16,6 @@ Notes:
 
 (* abstract syntax tree of high-level language *)
 
-#use "./../../../classlib/OCaml/MyOCaml.ml";;
-
-(*
-
-Please implement the [compile] function following the
-specifications described in CS320_Fall_2023_Project-3.pdf
-
-Notes:
-1. You are only allowed to use library functions defined in MyOCaml.ml
-   or ones you implement yourself.
-2. You may NOT use OCaml standard library functions directly.
-
-*)
-
-(* ------------------------------------------------------------ *)
-
-(* abstract syntax tree of high-level language *)
-
 type uopr =
   | Neg | Not
 
@@ -346,84 +328,81 @@ let parse_prog (s : string) : expr =
   | Some (m, []) -> scope_expr m
   | _ -> raise SyntaxError
 
-let op_to_string op =
-  match op with
-  | Add -> "Add"
-  | Sub -> "Sub"
-  | Mul -> "Mul"
-  | Div -> "Div"
-  | Mod -> "Mod"
-  | And -> "And"
-  | Or -> "Or"
-  | Lt -> "Lt"
-  | Gt -> "Gt"
-  | Lte -> "Lte"
-  | Gte -> "Gte"
-  | Eq -> "Eq"
-
-let maybe_swap op cm cn =
-  match op with
-  | Sub | Div | Lt | Gt | Lte | Gte -> Printf.sprintf "%s %s Swap; %s;" cn cm (op_to_string op)
-  | _ -> Printf.sprintf "%s %s %s;" cm cn (op_to_string op)
-
 let rec compile_expression scope = function
-  | Int n -> Printf.sprintf "Push %d;" n
-  | Bool b -> Printf.sprintf "Push %s;" (if b then "True" else "False")
-  | Unit -> "Push Unit;"
-  | Var x -> comp_var scope x
-  | UOpr (operation, m) -> comp_unry scope operation m
-  | BOpr (operation, m1, m2) -> comp_bopr scope operation m1 m2
-  | Fun (f, x, m) -> comp_fun scope f x m
-  | Let (x, m1, m2) -> comp_let scope x m1 m2
-  | App (m1, m2) ->
-    let cm1 = compile_expression scope m1 in
-    let cm2 = compile_expression scope m2 in
-    Printf.sprintf "%s %s Swap; Call;" cm2 cm1
-  | Seq (m1, m2) ->
-    let cm1 = compile_expression scope m1 in
-    let cm2 = compile_expression scope m2 in
-    Printf.sprintf "%s Pop; %s" cm1 cm2
-  | Ifte (condition, if_branch, else_branch) -> comp_cond scope condition if_branch else_branch
-  | Trace m ->
+  | Int(n) -> "Push " ^ string_of_int n 
+  | Bool(b) -> "Push " ^ (if b then "True" else "False")
+  | Unit -> "Push Unit"
+
+  | Var(x) ->
+    (match find_var scope x with
+    | None -> raise (UnboundVariable x)
+    | Some v -> "Push " ^ v ^ "; Lookup;")
+
+  | UOpr(operation, m) ->
     let cm = compile_expression scope m in
-    Printf.sprintf "%s Trace; Pop;" cm
+    cm ^ "; " ^ (match operation with
+                 | Neg -> "Neg"
+                 | Not -> "Not")
 
-and comp_unry scope op m =
-  let cm = compile_expression scope m in
-  Printf.sprintf "%s %s;" cm (match op with | Neg -> "Neg" | Not -> "Not")
+  | BOpr(operation, m, n) ->
+    let cm = compile_expression scope m in
+    let cn = compile_expression scope n in
+    (match operation with
+      | Add -> cm ^ "; " ^ cn ^ "; Add"
+      | Sub -> cm ^ "; " ^ cn ^ "; Swap; Sub"
+      | Mul -> cm ^ "; " ^ cn ^ "; Mul"
+      | Div -> cm ^ "; " ^ cn ^ "; Swap; Div"
+      | Mod -> cm ^ "; " ^ cn ^ "; Swap; Div; Swap; Push " ^ cm ^ "; Mul; Swap; Sub"
+      | And -> cm ^ "; " ^ cn ^ "; And"
+      | Or -> cm ^ "; " ^ cn ^ "; Or"
+      | Lt -> cm ^ "; " ^ cn ^ "; Lt"
+      | Gt -> cm ^ "; " ^ cn ^ "; Gt"
+      | Lte -> cm ^ "; " ^ cn ^ "; Lte"
+      | Gte -> cm ^ "; " ^ cn ^ "; Gte"
+      | Eq -> cm ^ "; " ^ cn ^ "; Eq")
 
-and comp_bopr scope op m1 m2 =
-  let cm1 = compile_expression scope m1 in
-  let cm2 = compile_expression scope m2 in
-  maybe_swap op cm1 cm2
+  | Fun(f, x, m) ->
+    let fv = new_var f in
+    let f_scope = (f, fv) :: scope in
+    let xv = new_var x in
+    let x_f_scope = (x, xv) :: f_scope in
+    let cm = compile_expression x_f_scope m in
+    if f = "" then
+      "Fun Push " ^ xv ^ "; Bind; " ^ cm ^ "; Swap; Return; End"
+    else
+      "Push " ^ fv ^ "; Fun Push " ^ xv ^ "; Bind; " ^ cm ^ "; Swap; Return; End; Push " ^ fv ^ "; Bind"
 
-and comp_var scope x =
-  match find_var scope x with
-  | None -> raise (UnboundVariable x)
-  | Some v -> Printf.sprintf "Push %s; Lookup;" v
+  | Let(x, m, n) ->
+    let cm = compile_expression scope m in
+    let xvar = new_var x in
+    let updated_scope = (x, xvar) :: scope in
+    let cn = compile_expression updated_scope n in
+    cm ^ "; Push " ^ xvar ^ "; Bind; " ^ cn
 
-and comp_fun scope f x m =
-  let funv = new_var f in
-  let funfscope = (f, funv) :: scope in
-  let funxv = new_var x in
-  let funxfscope = (x, funxv) :: funfscope in
-  let body = compile_expression funxfscope m in
-  Printf.sprintf "Push %s; Fun Push %s; Bind; %s Swap; Return; End;" funv funxv body
+  | App(m, n) ->
+    let cm = compile_expression scope m in
+    let cn = compile_expression scope n in
+    cn ^ "; " ^ cm ^ "; Call"
 
-and comp_let scope x m n =
-  let cm = compile_expression scope m in
-  let xv = new_var x in
-  let x_scope = (x, xv) :: scope in
-  let cn = compile_expression x_scope n in
-  Printf.sprintf "%s Push %s; Bind; %s" cm xv cn
+  | Seq(m, n) ->
+    let cm = compile_expression scope m in
+    let cn = compile_expression scope n in
+    cm ^ "; " ^ cn
 
-and comp_cond scope condition if_branch else_branch =
-  let ccond = compile_expression scope condition in
-  let cif = compile_expression scope if_branch in
-  let celse = compile_expression scope else_branch in
-  Printf.sprintf "%s If %s Else %s End;" ccond cif celse
+  | Ifte(condition, if_branch, else_branch) ->
+    let ccond = compile_expression scope condition in
+    let cif = compile_expression scope if_branch in
+    let celse = compile_expression scope else_branch in
+    ccond ^ "; If " ^ cif ^ " Else " ^ celse ^ " End"
 
+  | Trace(m) ->
+    let cm = compile_expression scope m in
+    cm ^ "; Trace; Pop;"
 
 let compile (s : string) : string =
   let ast = parse_prog s in
   compile_expression [] ast
+
+
+
+
