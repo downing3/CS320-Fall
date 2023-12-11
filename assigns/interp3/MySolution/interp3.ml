@@ -348,7 +348,7 @@ let rec compile_expression = function
   let op_cmd = match operation with
     | Add -> "Add"
     | Sub -> "Swap; Sub"  
-    | Mul -> "Swap; Mul"
+    | Mul -> "Mul"
     | Div -> "Swap; Div"
     | Mod -> "Mod"
     | And -> "And"
