@@ -384,7 +384,7 @@ let rec compile_expression = function
     let ccond = compile_expression condition in
     let cif = compile_expression if_branch in
     let celse = compile_expression else_branch in
-    ccond ^ "; If [ " ^ cif ^ " ] Else [ " ^ celse ^ " ] End"
+    Printf.sprintf "%s; If %s Else %s End" ccond cif celse
 
   | Trace(m) ->
     let cm = compile_expression m in
