@@ -342,28 +342,48 @@ let rec compile_expression = function
      | Neg -> cm ^ "; Neg"
      | Not -> cm ^ "; Not")
 
-  | BOpr(operation, m, n) ->
-  let cm = compile_expression m in
-  let cn = compile_expression n in
-  let op_cmd = match operation with
-    | Add -> "Add"
-    | Sub -> "Swap; Sub"  
-    | Mul -> "Mul"
-    | Div -> "Swap; Div"
-    | Mod -> "Mod"
-    | And -> "And"
-    | Or -> "Or"
-    | Lt -> "Lt"
-    | Gt -> "Gt"
-    | Lte -> "Lte"
-    | Gte -> "Gte"
-    | Eq -> "Eq"
-  in
-  Printf.sprintf "%s; %s; %s" cm cn op_cmd
+     let op_to_string op =
+      match op with
+      | Add -> "Add"
+      | Sub -> "Sub"
+      | Mul -> "Mul"
+      | Div -> "Div"
+      | Mod -> "Mod"
+      | And -> "And"
+      | Or -> "Or"
+      | Lt -> "Lt"
+      | Gt -> "Gt"
+      | Lte -> "Lte"
+      | Gte -> "Gte"
+      | Eq -> "Eq"
+      | _ -> failwith "Unsupported operation"
+    
+    let maybe_swap op cm cn =
+      match op with
+      | Sub | Div | Lt | Gt | Lte | Gte -> Printf.sprintf "%s; %s; Swap; %s" cm cn (op_to_string op)
+      | _ -> Printf.sprintf "%s; %s; %s" cm cn (op_to_string op)
+    
+    let rec compile_expression = function
+      | Int(n) -> Printf.sprintf "Push %d" n 
+      | Bool(b) -> Printf.sprintf "Push %s" (if b then "True" else "False")
+      | Unit -> "Push Unit"
+      | Var(x) -> Printf.sprintf "Push %s; Lookup" x
+      | UOpr(operation, m) ->
+        let cm = compile_expression m in
+        (match operation with
+         | Neg -> cm ^ "; Neg"
+         | Not -> cm ^ "; Not")
+      | BOpr(operation, m, n) ->
+        let cm = compile_expression m in
+        let cn = compile_expression n in
+        maybe_swap operation cm cn
 
   | Fun(f, x, m) ->
     let cm = compile_expression m in
-    Printf.sprintf "Push %s; Fun Push %s; Bind; %s; Swap; Return; End" f x cm
+    if f = "" then
+      Printf.sprintf "Fun Push %s; Bind; %s; Swap; Return; End" x cm
+    else
+      Printf.sprintf "Push %s; Fun Push %s; Bind; %s; Swap; Return; End; Push %s; Bind" f x cm f
 
   | Let(x, m, n) ->
     let cm = compile_expression m in
@@ -374,6 +394,7 @@ let rec compile_expression = function
     let cm = compile_expression m in
     let cn = compile_expression n in
     Printf.sprintf "%s; %s; Call" cn cm
+
 
   | Seq(m, n) ->
     let cm = compile_expression m in
