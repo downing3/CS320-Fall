@@ -333,6 +333,9 @@ let rec compile_expression = function
   | Bool(b) -> Printf.sprintf "Push %s" (if b then "True" else "False")
   | Unit -> "Push Unit"
 
+  | Var(x) ->
+    Printf.sprintf "Push %s; Lookup" x
+
   | UOpr(operation, m) ->
     let cm = compile_expression m in
     (match operation with
@@ -340,53 +343,54 @@ let rec compile_expression = function
      | Not -> cm ^ "; Not")
 
   | BOpr(operation, m, n) ->
-    let cm = compile_expression m in
-    let cn = compile_expression n in
-    (match operation with
-     | Add -> cm ^ "; " ^ cn ^ "; Add"
-     | Sub -> cm ^ "; " ^ cn ^ "; Sub"
-     | Mul -> cm ^ "; " ^ cn ^ "; Mul"
-     | Div -> cm ^ "; " ^ cn ^ "; Div"
-     | Mod -> cm ^ "; " ^ cn ^ "; Mod"
-     | And -> cm ^ "; " ^ cn ^ "; And"
-     | Or -> cm ^ "; " ^ cn ^ "; Or"
-     | Lt -> cm ^ "; " ^ cn ^ "; Lt"
-     | Gt -> cm ^ "; " ^ cn ^ "; Gt"
-     | Lte -> cm ^ "; " ^ cn ^ "; Lte"
-     | Gte -> cm ^ "; " ^ cn ^ "; Gte"
-     | Eq -> cm ^ "; " ^ cn ^ "; Eq")
+  let cm = compile_expression m in
+  let cn = compile_expression n in
+  let op_cmd = match operation with
+    | Add -> "Add"
+    | Sub -> "Swap; Sub"  (* Swap needed if the stack language expects reverse order *)
+    | Mul -> "Swap; Mul"
+    | Div -> "Swap; Div"
+    | Mod -> "Mod"
+    | And -> "And"
+    | Or -> "Or"
+    | Lt -> "Lt"
+    | Gt -> "Gt"
+    | Lte -> "Lte"
+    | Gte -> "Gte"
+    | Eq -> "Eq"
+  in
+  Printf.sprintf "%s; %s; %s" cm cn op_cmd
 
-  | Var(x) -> Printf.sprintf "Lookup %s" x
+  | Fun(f, x, m) ->
+    let cm = compile_expression m in
+    Printf.sprintf "Push %s; Fun Push %s; Bind; %s; Swap; Return; End" f x cm
 
   | Let(x, m, n) ->
     let cm = compile_expression m in
     let cn = compile_expression n in
-    cm ^ "; Bind " ^ x ^ "; " ^ cn
+    Printf.sprintf "%s; Push %s; Bind; %s" cm x cn
 
   | App(m, n) ->
     let cm = compile_expression m in
     let cn = compile_expression n in
-    cn ^ "; " ^ cm ^ "; Call"
+    Printf.sprintf "%s; %s; Call" cn cm
 
   | Seq(m, n) ->
     let cm = compile_expression m in
     let cn = compile_expression n in
-    cm ^ "; Pop; " ^ cn
+    cm ^ "; " ^ cn
 
   | Ifte(condition, if_branch, else_branch) ->
     let ccond = compile_expression condition in
     let cif = compile_expression if_branch in
     let celse = compile_expression else_branch in
-    ccond ^ "; Ifte [ " ^ cif ^ " ] [ " ^ celse ^ " ]"
+    ccond ^ "; If [ " ^ cif ^ " ] Else [ " ^ celse ^ " ] End"
 
   | Trace(m) ->
     let cm = compile_expression m in
-    cm ^ "; Trace;"  
-
-  | Fun(f, x, m) ->
-    let cm = compile_expression m in
-    Printf.sprintf "Fun %s %s; %s; End" f x cm
+    cm ^ "; Trace; Pop;"
 
 let compile (s : string) : string =
   let ast = parse_prog s in
   compile_expression ast
+
